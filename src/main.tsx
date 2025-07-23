@@ -3,16 +3,19 @@ import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 
+// Register service worker with update prompt
 import { registerSW } from 'virtual:pwa-register';
 
-// Register the service worker from vite-plugin-pwa
-registerSW({
+const updateSW = registerSW({
   onNeedRefresh() {
-    console.log('⚠️ New content is available. Please refresh.');
+    const shouldReload = confirm('New update available. Reload to update?');
+    if (shouldReload) {
+      updateSW(true);
+    }
   },
   onOfflineReady() {
-    console.log('✅ App is ready to work offline.');
-  },
+    console.log('App ready to use offline');
+  }
 });
 
 createRoot(document.getElementById('root')!).render(
