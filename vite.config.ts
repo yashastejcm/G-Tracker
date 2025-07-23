@@ -2,7 +2,6 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
-// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
     react(),
@@ -10,8 +9,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
-        name: 'Offline Workout Tracker',
-        short_name: 'WorkoutTracker',
+        name: 'G-Tracker',
+        short_name: 'GTracker',
         description: 'Track your workouts offline with progress analytics',
         theme_color: '#4f46e5',
         background_color: '#ffffff',
@@ -42,7 +41,7 @@ export default defineConfig({
               cacheName: 'google-fonts-cache',
               expiration: {
                 maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 365 // 1 year
+                maxAgeSeconds: 60 * 60 * 24 * 365
               }
             }
           }
@@ -54,3 +53,4 @@ export default defineConfig({
     exclude: ['lucide-react'],
   },
 });
+
