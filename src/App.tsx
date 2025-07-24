@@ -173,7 +173,7 @@ const Card = ({ children, className = '', ...props }) => (
 );
 
 const Button = ({ children, onClick, variant = 'primary', className = '', disabled = false }) => {
-    const baseClasses = 'px-6 py-3 font-semibold rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 transition-transform transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed';
+    const baseClasses = 'px-6 py-3 font-semibold rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 transition-transform transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed';
     const variants = {
         primary: 'bg-[#494358] text-white hover:bg-[#5A556B] focus:ring-[#5A556B]',
         secondary: 'bg-gray-200 text-gray-800 hover:bg-gray-300 focus:ring-gray-400',
@@ -500,7 +500,7 @@ const WeightSelector = ({ onNext, onBack, profileData, setProfileData }) => {
                 <h2 className="text-5xl font-light text-gray-800">What is your</h2>
                 <h2 className="text-5xl font-semibold text-gray-800">Weight?</h2>
             </div>
-            <div className="flex-grow flex flex-col items-center justify-center">
+            <div className="flex-grow flex flex-col items-center justify-start pt-8">
                 <div className="mb-8">
                     <UnitSwitch
                         options={[{ label: 'lb', value: 'lb' }, { label: 'kg', value: 'kg' }]}
@@ -563,7 +563,7 @@ const HeightSelector = ({ onNext, onBack, profileData, setProfileData }) => {
                 <h2 className="text-5xl font-light text-gray-800">What is your</h2>
                 <h2 className="text-5xl font-semibold text-gray-800">Height?</h2>
             </div>
-            <div className="flex-grow flex flex-col items-center justify-center">
+            <div className="flex-grow flex flex-col items-center justify-start pt-8">
                 <div className="mb-8">
                     <UnitSwitch
                         options={[{ label: 'ft-in', value: 'ft-in' }, { label: 'cm', value: 'cm' }]}
@@ -1649,6 +1649,153 @@ const WorkoutAnalytics = () => {
     );
 };
 
+const ProfilePage = ({ onNavigate }) => {
+    const [profile, setProfile] = useState(null);
+    const [isEditing, setIsEditing] = useState(false);
+    const [name, setName] = useState('');
+    const importFileRef = useRef(null);
+
+    useEffect(() => {
+        const userProfile = getFromStorage(LOCAL_STORAGE_KEYS.USER_PROFILE);
+        if (userProfile) {
+            setProfile(userProfile);
+            setName(userProfile.name);
+        }
+    }, []);
+
+    const handleNameChange = (e) => {
+        setName(e.target.value);
+    };
+
+    const handleSaveName = () => {
+        if (profile) {
+            const updatedProfile = { ...profile, name };
+            saveToStorage(LOCAL_STORAGE_KEYS.USER_PROFILE, updatedProfile);
+            setProfile(updatedProfile);
+            setIsEditing(false);
+        }
+    };
+
+    const handleExportData = () => {
+        const dataToExport = {};
+        Object.values(LOCAL_STORAGE_KEYS).forEach(key => {
+            dataToExport[key] = getFromStorage(key);
+        });
+
+        const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(
+            JSON.stringify(dataToExport, null, 2)
+        )}`;
+        const link = document.createElement("a");
+        link.href = jsonString;
+        link.download = "workout_data.json";
+        link.click();
+    };
+
+    const handleImportData = (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const importedData = JSON.parse(e.target.result);
+                // Basic validation
+                const requiredKeys = Object.values(LOCAL_STORAGE_KEYS);
+                const importedKeys = Object.keys(importedData);
+                const hasAllKeys = requiredKeys.every(key => importedKeys.includes(key));
+
+                if (!hasAllKeys) {
+                    alert("Invalid data file. Some data might be missing.");
+                    return;
+                }
+
+                // Save data to localStorage
+                requiredKeys.forEach(key => {
+                    if (importedData[key]) {
+                        saveToStorage(key, importedData[key]);
+                    }
+                });
+
+                alert("Data imported successfully! The app will now reload.");
+                window.location.reload();
+
+            } catch (error) {
+                console.error("Error importing data:", error);
+                alert("Failed to import data. The file might be corrupted.");
+            }
+        };
+        reader.readAsText(file);
+    };
+
+    if (!profile) {
+        return <div className="p-4">Loading profile...</div>;
+    }
+
+    return (
+        <div className="p-4 max-w-lg mx-auto">
+            <div className="text-left py-8">
+                <h1 className="text-5xl font-light">Your</h1>
+                <h1 className="text-5xl font-semibold">Profile</h1>
+            </div>
+
+            <Card>
+                <div className="flex items-center space-x-4 mb-6">
+                    <img 
+                        src={profile.photo || `https://placehold.co/100x100/E2E8F0/4A5568?text=${name.charAt(0)}`} 
+                        alt="Profile" 
+                        className="w-24 h-24 rounded-full object-cover border-4 border-gray-200"
+                    />
+                    <div className="flex-grow">
+                        {isEditing ? (
+                            <div className="flex items-center space-x-2">
+                                <input 
+                                    type="text"
+                                    value={name}
+                                    onChange={handleNameChange}
+                                    className="text-2xl font-bold p-2 border rounded-md w-full"
+                                />
+                                <button onClick={handleSaveName} className="p-2 bg-green-500 text-white rounded-full">
+                                    <Save size={20} />
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="flex items-center space-x-2">
+                                <h2 className="text-2xl font-bold">{profile.name}</h2>
+                                <button onClick={() => setIsEditing(true)} className="p-2 text-gray-500 hover:text-gray-800">
+                                    <Edit size={20} />
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </Card>
+
+            <Card className="mt-6">
+                <h3 className="text-xl font-bold mb-4">Data Management</h3>
+                <div className="space-y-4">
+                    <Button onClick={handleExportData} variant="secondary" className="w-full">
+                        Export My Data
+                    </Button>
+                    <Button onClick={() => importFileRef.current.click()} variant="secondary" className="w-full">
+                        Import Data
+                    </Button>
+                    <input 
+                        type="file"
+                        ref={importFileRef}
+                        className="hidden"
+                        accept=".json"
+                        onChange={handleImportData}
+                    />
+                </div>
+                 <p className="text-xs text-gray-500 mt-4">
+                    Importing data will overwrite your current progress. Use with caution.
+                </p>
+            </Card>
+        </div>
+    );
+};
+
+
 // --- Main App Component ---
 export default function App() {
     const [loading, setLoading] = useState(true);
@@ -1702,7 +1849,7 @@ export default function App() {
             case 'analytics':
                 return <WorkoutAnalytics />;
             case 'profile':
-                 return <div className="text-center p-10"><h1 className="text-2xl">Profile Page</h1></div>;
+                 return <ProfilePage onNavigate={handleNavigation} />;
             default:
                 return <div className="text-center text-red-500">Something went wrong.</div>;
         }
@@ -1710,14 +1857,28 @@ export default function App() {
 
     const NavItem = ({ screen, icon, currentScreen }) => {
         const isActive = screen === currentScreen;
+        const [isAnimating, setIsAnimating] = useState(false);
+        const prevIsActive = useRef(isActive);
+
+        useEffect(() => {
+            // Animate only when changing to active
+            if (isActive && !prevIsActive.current) {
+                setIsAnimating(true);
+                const timer = setTimeout(() => setIsAnimating(false), 400); // Animation duration
+                return () => clearTimeout(timer);
+            }
+            prevIsActive.current = isActive;
+        }, [isActive]);
+
+
         return (
             <button 
                 onClick={() => setAppState(screen)} 
-                className="flex-1 flex items-center justify-center"
+                className="flex-1 flex items-center justify-center group"
             >
-                <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 ${isActive ? 'bg-white' : 'bg-transparent'}`}>
+                <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-active:scale-90 ${isActive ? 'bg-white' : 'bg-transparent'}`}>
                     {React.cloneElement(icon, {
-                        className: `transition-colors duration-300 ${isActive ? 'text-gray-900' : 'text-gray-400'}`
+                        className: `transition-all duration-300 ${isActive ? 'text-gray-900' : 'text-gray-400'} ${isAnimating ? 'animate-bounce-in' : ''}`
                     })}
                 </div>
             </button>
@@ -1731,6 +1892,20 @@ export default function App() {
             <style>
                 {`
                     @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
+                    @keyframes bounce-in {
+                      0% {
+                        transform: scale(0.8);
+                      }
+                      60% {
+                        transform: scale(1.2);
+                      }
+                      100% {
+                        transform: scale(1);
+                      }
+                    }
+                    .animate-bounce-in {
+                      animation: bounce-in 0.4s ease-out;
+                    }
                 `}
             </style>
             <main className={`pb-28 transition-all duration-300 ${!showNav ? 'pt-0' : 'pt-4'}`}>
