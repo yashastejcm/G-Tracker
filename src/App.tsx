@@ -1908,12 +1908,15 @@ const CalorieCounter = () => {
     const [suggestions, setSuggestions] = useState([]);
     const [allFoods, setAllFoods] = useState(FOOD_LIST.map(f => f.name));
     const [customFoods, setCustomFoods] = useState([]);
-    const today = new Date().toISOString().split('T')[0];
+    const [currentDate, setCurrentDate] = useState(new Date());
+    const [isCalendarOpen, setIsCalendarOpen] = useState(false);
     const suggestionBoxRef = useRef(null);
+
+    const dateToString = (date) => date.toISOString().split('T')[0];
 
     useEffect(() => {
         const allLogs = getFromStorage(LOCAL_STORAGE_KEYS.CALORIE_LOGS) || {};
-        const todayLog = allLogs[today] || { goal: 2000, foods: [] };
+        const todayLog = allLogs[dateToString(currentDate)] || { goal: 2000, foods: [] };
         setDailyLog(todayLog);
 
         let savedCustomFoods = getFromStorage(LOCAL_STORAGE_KEYS.CUSTOM_FOOD_LIST) || [];
@@ -1929,7 +1932,7 @@ const CalorieCounter = () => {
         setCustomFoods(recentCustomFoods);
         const combined = [...new Set([...FOOD_LIST.map(f => f.name), ...recentCustomFoods.map(f => f.name)])].sort();
         setAllFoods(combined);
-    }, [today]);
+    }, [currentDate]);
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -1945,7 +1948,7 @@ const CalorieCounter = () => {
 
     const saveLog = (log) => {
         const allLogs = getFromStorage(LOCAL_STORAGE_KEYS.CALORIE_LOGS) || {};
-        allLogs[today] = log;
+        allLogs[dateToString(currentDate)] = log;
         saveToStorage(LOCAL_STORAGE_KEYS.CALORIE_LOGS, allLogs);
     };
 
@@ -1997,9 +2000,9 @@ const CalorieCounter = () => {
                 const existingCustomFoodIndex = customFoods.findIndex(f => f.name.toLowerCase() === foodNameLower);
 
                 if (existingCustomFoodIndex > -1) {
-                    updatedCustomFoods[existingCustomFoodIndex].lastUsed = today;
+                    updatedCustomFoods[existingCustomFoodIndex].lastUsed = dateToString(new Date());
                 } else {
-                    updatedCustomFoods.push({ name: newFood.name, lastUsed: today });
+                    updatedCustomFoods.push({ name: newFood.name, lastUsed: dateToString(new Date()) });
                 }
                 
                 saveToStorage(LOCAL_STORAGE_KEYS.CUSTOM_FOOD_LIST, updatedCustomFoods);
@@ -2034,12 +2037,23 @@ const CalorieCounter = () => {
 
     const remainingCalories = dailyLog.goal - totalCalories;
     const progress = dailyLog.goal > 0 ? (totalCalories / dailyLog.goal) * 100 : 0;
+    
+    const changeDate = (amount) => {
+        const newDate = new Date(currentDate);
+        newDate.setDate(newDate.getDate() + amount);
+        setCurrentDate(newDate);
+    };
 
     return (
         <div className="p-4 max-w-lg mx-auto">
-            <div className="text-left py-8">
-                <h1 className="text-5xl font-light">Calorie</h1>
-                <h1 className="text-5xl font-semibold">Tracker</h1>
+            <div className="flex justify-between items-center py-8">
+                <div className="text-left">
+                    <h1 className="text-5xl font-light">Calorie</h1>
+                    <h1 className="text-5xl font-semibold">Tracker</h1>
+                </div>
+                <button onClick={() => setIsCalendarOpen(true)} className="p-2 rounded-full hover:bg-gray-200">
+                    <Calendar size={28} />
+                </button>
             </div>
 
             <Card>
@@ -2066,8 +2080,14 @@ const CalorieCounter = () => {
                     <span>Remaining: {remainingCalories} kcal</span>
                 </div>
             </Card>
+            
+            <div className="flex items-center justify-between my-4">
+                <button onClick={() => changeDate(-1)} className="p-2 rounded-full hover:bg-gray-200"><ChevronLeft/></button>
+                <span className="text-lg font-semibold">{currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</span>
+                <button onClick={() => changeDate(1)} className="p-2 rounded-full hover:bg-gray-200"><ChevronRight/></button>
+            </div>
 
-            <Card className="mt-6">
+            <Card>
                 <h3 className="text-xl font-bold mb-4">Log Food</h3>
                 <form onSubmit={handleAddFood} className="flex flex-col gap-2 mb-4">
                     <div className="relative" ref={suggestionBoxRef}>
@@ -2129,6 +2149,63 @@ const CalorieCounter = () => {
                     )}
                 </div>
             </Card>
+            {isCalendarOpen && <CalendarModal onClose={() => setIsCalendarOpen(false)} onDateSelect={(date) => { setCurrentDate(date); setIsCalendarOpen(false); }} />}
+        </div>
+    );
+};
+
+const CalendarModal = ({ onClose, onDateSelect }) => {
+    const [date, setDate] = useState(new Date());
+    const allLogs = getFromStorage(LOCAL_STORAGE_KEYS.CALORIE_LOGS) || {};
+
+    const month = date.getMonth();
+    const year = date.getFullYear();
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    
+    const monthlyCalories = useMemo(() => {
+        return Object.entries(allLogs)
+            .filter(([dateStr]) => new Date(dateStr).getMonth() === month && new Date(dateStr).getFullYear() === year)
+            .reduce((total, [, log]) => total + log.foods.reduce((sum, food) => sum + parseInt(food.calories, 10), 0), 0);
+    }, [allLogs, month, year]);
+
+    const days = [];
+    for (let i = 0; i < firstDay; i++) {
+        days.push(<div key={`empty-${i}`} className="w-10 h-10"></div>);
+    }
+
+    for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const logForDay = allLogs[dateStr];
+        let dayClass = "w-10 h-10 flex items-center justify-center rounded-full cursor-pointer";
+        if (logForDay && logForDay.foods.length > 0) {
+            dayClass += " bg-green-200";
+        }
+        days.push(<div key={day} className={dayClass} onClick={() => onDateSelect(new Date(year, month, day))}>{day}</div>);
+    }
+
+    return (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+                <div className="flex justify-between items-center mb-4">
+                    <button onClick={() => setDate(new Date(date.setMonth(date.getMonth() - 1)))}><ChevronLeft/></button>
+                    <h3 className="text-xl font-bold">{date.toLocaleString('default', { month: 'long', year: 'numeric' })}</h3>
+                    <button onClick={() => setDate(new Date(date.setMonth(date.getMonth() + 1)))}><ChevronRight/></button>
+                </div>
+                <div className="grid grid-cols-7 gap-2 text-center">
+                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => <div key={day} className="font-semibold text-sm">{day}</div>)}
+                    {days}
+                </div>
+                <div className="mt-4">
+                    <h4 className="font-semibold">Monthly Total: {monthlyCalories.toLocaleString()} kcal</h4>
+                    <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2">
+                        <div className="bg-blue-600 h-2.5 rounded-full" style={{width: `${Math.min((monthlyCalories / (30 * 2000)) * 100, 100)}%`}}></div>
+                    </div>
+                </div>
+                <div className="text-center mt-6">
+                    <Button onClick={onClose} variant="secondary">Close</Button>
+                </div>
+            </div>
         </div>
     );
 };
