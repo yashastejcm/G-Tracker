@@ -197,13 +197,31 @@ const NumberStepper = ({ value, onChange, step, min = 0, max = 1000 }) => {
         const newValue = Math.max(value - step, min);
         onChange(newValue);
     };
+    
+    const handleInputChange = (e) => {
+        const rawValue = e.target.value;
+        if (rawValue === '') {
+            onChange(0);
+            return;
+        }
+        const parsedValue = parseFloat(rawValue);
+        if (!isNaN(parsedValue)) {
+            const clampedValue = Math.max(min, Math.min(parsedValue, max));
+            onChange(clampedValue);
+        }
+    };
 
     return (
         <div className="flex items-center justify-center gap-2">
             <button onClick={handleDecrement} className="p-2 rounded-full bg-gray-200 hover:bg-gray-300 transition-colors">
                 <Minus size={16} />
             </button>
-            <span className="text-lg font-semibold w-16 text-center">{value}</span>
+            <input
+                type="number"
+                value={value}
+                onChange={handleInputChange}
+                className="text-lg font-semibold w-16 text-center bg-transparent border-none focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            />
             <button onClick={handleIncrement} className="p-2 rounded-full bg-gray-200 hover:bg-gray-300 transition-colors">
                 <Plus size={16} />
             </button>
