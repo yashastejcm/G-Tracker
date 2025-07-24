@@ -1906,7 +1906,7 @@ const CalorieCounter = () => {
     const [dailyLog, setDailyLog] = useState({ goal: 2000, foods: [] });
     const [newFood, setNewFood] = useState({ name: '', calories: '' });
     const [suggestions, setSuggestions] = useState([]);
-    const [allFoods, setAllFoods] = useState(FOOD_LIST);
+    const [allFoods, setAllFoods] = useState(FOOD_LIST.map(f => f.name));
     const [customFoods, setCustomFoods] = useState([]);
     const today = new Date().toISOString().split('T')[0];
     const suggestionBoxRef = useRef(null);
