@@ -80,63 +80,75 @@ const EXERCISE_LIST = [
 ];
 
 // --- Workout Plan Generation Logic ---
-const getExercisesByMuscles = (muscles) => {
-    return EXERCISE_LIST.filter(ex => muscles.includes(ex.muscle));
+const getExercisesByMuscles = (muscles, excludeLegs = false) => {
+    let exercises = EXERCISE_LIST.filter(ex => muscles.includes(ex.muscle));
+    if (excludeLegs) {
+        exercises = exercises.filter(ex => ex.muscle !== 'Leg' && ex.muscle !== 'Butt');
+    }
+    return exercises;
 };
 
 const PRECONFIGURED_PLANS = {
     Beginner: {
         3: {
-            'Day 1': { name: 'Full Body A', exercises: getExercisesByMuscles(['Chest', 'Back', 'Leg']).slice(0, 5) },
-            'Day 2': { name: 'Rest Day', exercises: [] },
-            'Day 3': { name: 'Full Body B', exercises: getExercisesByMuscles(['Shoulder', 'Arm', 'Abs']).slice(0, 5) },
-            'Day 4': { name: 'Rest Day', exercises: [] },
-            'Day 5': { name: 'Full Body A', exercises: getExercisesByMuscles(['Chest', 'Back', 'Leg']).slice(0, 5) },
-            'Day 6': { name: 'Rest Day', exercises: [] },
-            'Day 7': { name: 'Rest Day', exercises: [] },
+            'Day 1': { name: 'Full Body A', muscles: ['Chest', 'Back', 'Leg'] },
+            'Day 2': { name: 'Rest Day', muscles: [] },
+            'Day 3': { name: 'Full Body B', muscles: ['Shoulder', 'Arm', 'Abs'] },
+            'Day 4': { name: 'Rest Day', muscles: [] },
+            'Day 5': { name: 'Full Body A', muscles: ['Chest', 'Back', 'Leg'] },
+            'Day 6': { name: 'Rest Day', muscles: [] },
+            'Day 7': { name: 'Rest Day', muscles: [] },
         },
-        // Other day counts for Beginner can be added here
     },
     Intermediate: {
         4: {
-            'Day 1': { name: 'Upper Body A', exercises: getExercisesByMuscles(['Chest', 'Back', 'Shoulder']).slice(0, 6) },
-            'Day 2': { name: 'Lower Body A', exercises: getExercisesByMuscles(['Leg', 'Butt', 'Abs']).slice(0, 6) },
-            'Day 3': { name: 'Rest Day', exercises: [] },
-            'Day 4': { name: 'Upper Body B', exercises: getExercisesByMuscles(['Chest', 'Back', 'Arm']).slice(0, 6) },
-            'Day 5': { name: 'Lower Body B', exercises: getExercisesByMuscles(['Leg', 'Butt', 'Abs']).slice(0, 6) },
-            'Day 6': { name: 'Rest Day', exercises: [] },
-            'Day 7': { name: 'Rest Day', exercises: [] },
+            'Day 1': { name: 'Upper Body A', muscles: ['Chest', 'Back', 'Shoulder'] },
+            'Day 2': { name: 'Lower Body A', muscles: ['Leg', 'Butt', 'Abs'] },
+            'Day 3': { name: 'Rest Day', muscles: [] },
+            'Day 4': { name: 'Upper Body B', muscles: ['Chest', 'Back', 'Arm'] },
+            'Day 5': { name: 'Lower Body B', muscles: ['Leg', 'Butt', 'Abs'] },
+            'Day 6': { name: 'Rest Day', muscles: [] },
+            'Day 7': { name: 'Rest Day', muscles: [] },
         },
     },
     Advanced: {
         5: {
-            'Day 1': { name: 'Push Day', exercises: getExercisesByMuscles(['Chest', 'Shoulder']).filter(e => e.type === 'Compound').slice(0, 5) },
-            'Day 2': { name: 'Pull Day', exercises: getExercisesByMuscles(['Back']).slice(0, 5) },
-            'Day 3': { name: 'Leg Day', exercises: getExercisesByMuscles(['Leg', 'Butt']).slice(0, 5) },
-            'Day 4': { name: 'Rest Day', exercises: [] },
-            'Day 5': { name: 'Upper Body', exercises: getExercisesByMuscles(['Chest', 'Back', 'Shoulder', 'Arm']).slice(0, 6) },
-            'Day 6': { name: 'Lower Body', exercises: getExercisesByMuscles(['Leg', 'Butt', 'Abs']).slice(0, 6) },
-            'Day 7': { name: 'Rest Day', exercises: [] },
+            'Day 1': { name: 'Push Day', muscles: ['Chest', 'Shoulder'] },
+            'Day 2': { name: 'Pull Day', muscles: ['Back'] },
+            'Day 3': { name: 'Leg Day', muscles: ['Leg', 'Butt'] },
+            'Day 4': { name: 'Rest Day', muscles: [] },
+            'Day 5': { name: 'Upper Body', muscles: ['Chest', 'Back', 'Shoulder', 'Arm'] },
+            'Day 6': { name: 'Lower Body', muscles: ['Leg', 'Butt', 'Abs'] },
+            'Day 7': { name: 'Rest Day', muscles: [] },
         }
     }
 };
 
-const generateWorkoutPlan = (level, days) => {
-    // Default to a simple plan if the specific combo doesn't exist
+const generateWorkoutPlan = (level, days, excludeLegs = false) => {
     const planTemplate = PRECONFIGURED_PLANS[level]?.[days] || PRECONFIGURED_PLANS.Beginner[3];
     
-    // Format exercises with default sets
     const formattedPlan = {};
     for (const dayKey in planTemplate) {
-        formattedPlan[dayKey] = {
-            name: planTemplate[dayKey].name,
-            exercises: planTemplate[dayKey].exercises.map(ex => ({
-                name: ex.name,
-                muscle: ex.muscle,
-                sets: [{ reps: 10, weight: 10 }],
-                notes: ''
-            }))
-        };
+        const dayTemplate = planTemplate[dayKey];
+        let exercises = getExercisesByMuscles(dayTemplate.muscles, excludeLegs);
+
+        // If excluding legs removes all exercises for a day, make it a rest day.
+        if (dayTemplate.muscles.length > 0 && exercises.length === 0) {
+             formattedPlan[dayKey] = {
+                name: 'Rest Day',
+                exercises: []
+            };
+        } else {
+            formattedPlan[dayKey] = {
+                name: dayTemplate.name,
+                exercises: exercises.slice(0, 5).map(ex => ({
+                    name: ex.name,
+                    muscle: ex.muscle,
+                    sets: [{ reps: 10, weight: 10 }],
+                    notes: ''
+                }))
+            };
+        }
     }
     return formattedPlan;
 };
@@ -571,6 +583,7 @@ const PlanConfiguration = ({ onFinish, onBack, profileData, setProfileData }) =>
     const [workoutPlan, setWorkoutPlan] = useState(null);
     const [editingDay, setEditingDay] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [excludeLegs, setExcludeLegs] = useState(false);
 
     const handleLevelSelect = (level) => {
         setProfileData(p => ({ ...p, fitnessLevel: level }));
@@ -580,9 +593,16 @@ const PlanConfiguration = ({ onFinish, onBack, profileData, setProfileData }) =>
 
     const handleDaySelect = (days) => {
         setSelectedDays(days);
-        const plan = generateWorkoutPlan(profileData.fitnessLevel, days);
+        const plan = generateWorkoutPlan(profileData.fitnessLevel, days, excludeLegs);
         setWorkoutPlan(plan);
     };
+    
+    useEffect(() => {
+        if (profileData.fitnessLevel && selectedDays) {
+            const plan = generateWorkoutPlan(profileData.fitnessLevel, selectedDays, excludeLegs);
+            setWorkoutPlan(plan);
+        }
+    }, [excludeLegs, profileData.fitnessLevel, selectedDays]);
 
     const handleFinalizePlan = () => {
         saveToStorage(LOCAL_STORAGE_KEYS.USER_PROFILE, profileData);
@@ -708,6 +728,13 @@ const PlanConfiguration = ({ onFinish, onBack, profileData, setProfileData }) =>
                                 {days} Days
                             </button>
                         ))}
+                         <button 
+                            onClick={() => setExcludeLegs(!excludeLegs)}
+                            className={`w-12 h-10 flex items-center justify-center rounded-full transition-colors ${excludeLegs ? 'bg-red-500 text-white' : 'bg-white'}`}
+                            title="Toggle Leg Workouts"
+                        >
+                            <span role="img" aria-label="leg" className="text-2xl">🦵</span>
+                        </button>
                     </div>
                  </div>
             )}
