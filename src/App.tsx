@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { ArrowLeft, Dumbbell, Calendar, Target, TrendingUp, Image as ImageIcon, CheckCircle, XCircle, Clock, Plus, Trash2, Edit, Save, BarChart2, Search, Undo, Lock, LayoutGrid, User, Camera } from 'lucide-react';
+import { ArrowLeft, Dumbbell, Calendar, Target, TrendingUp, Image as ImageIcon, CheckCircle, XCircle, Clock, Plus, Trash2, Edit, Save, BarChart2, Search, Undo, Lock, LayoutGrid, User, Camera, Flame, Minus } from 'lucide-react';
 
 // --- Local Storage Helper Functions ---
 const LOCAL_STORAGE_KEYS = {
@@ -7,7 +7,8 @@ const LOCAL_STORAGE_KEYS = {
   WORKOUT_PLAN: 'workout_plan',
   LOGS: 'workout_logs',
   EXERCISE_PROGRESS: 'exercise_progress',
-  EXERCISE_MEDIA: 'exercise_media'
+  EXERCISE_MEDIA: 'exercise_media',
+  CALORIE_LOGS: 'calorie_logs'
 };
 
 const getFromStorage = (key) => {
@@ -185,6 +186,31 @@ const Button = ({ children, onClick, variant = 'primary', className = '', disabl
         </button>
     );
 };
+
+const NumberStepper = ({ value, onChange, step, min = 0, max = 1000 }) => {
+    const handleIncrement = () => {
+        const newValue = Math.min(value + step, max);
+        onChange(newValue);
+    };
+
+    const handleDecrement = () => {
+        const newValue = Math.max(value - step, min);
+        onChange(newValue);
+    };
+
+    return (
+        <div className="flex items-center justify-center gap-2">
+            <button onClick={handleDecrement} className="p-2 rounded-full bg-gray-200 hover:bg-gray-300 transition-colors">
+                <Minus size={16} />
+            </button>
+            <span className="text-lg font-semibold w-16 text-center">{value}</span>
+            <button onClick={handleIncrement} className="p-2 rounded-full bg-gray-200 hover:bg-gray-300 transition-colors">
+                <Plus size={16} />
+            </button>
+        </div>
+    );
+};
+
 
 // --- Simple Chart Components ---
 const SimpleLineChart = ({ data, title }) => {
@@ -1408,10 +1434,10 @@ const DayDetail = ({ logId, onBack, onNavigate }) => {
                                         <div key={setIndex} className="grid grid-cols-12 gap-2 items-center">
                                             <div className="col-span-2 text-center font-medium">{setIndex + 1}</div>
                                             <div className="col-span-4">
-                                                <input type="number" step="0.5" value={set.weight} onChange={e => handleSetChange(exerciseIndex, setIndex, 'weight', e.target.value)} className="w-full p-2 border rounded-md" />
+                                                <NumberStepper value={set.weight} onChange={(newWeight) => handleSetChange(exerciseIndex, setIndex, 'weight', newWeight)} step={2.5} />
                                             </div>
                                             <div className="col-span-4">
-                                                <input type="number" value={set.reps} onChange={e => handleSetChange(exerciseIndex, setIndex, 'reps', e.target.value)} className="w-full p-2 border rounded-md" />
+                                                <NumberStepper value={set.reps} onChange={(newReps) => handleSetChange(exerciseIndex, setIndex, 'reps', newReps)} step={1} />
                                             </div>
                                             <div className="col-span-2 text-right">
                                                 <button onClick={() => removeSet(exerciseIndex, setIndex)} className="text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-100">
@@ -1812,6 +1838,13 @@ const ProfilePage = ({ onNavigate }) => {
             </Card>
 
             <Card className="mt-6">
+                <h3 className="text-xl font-bold mb-4">Workout Plan</h3>
+                <Button onClick={() => onNavigate('schedule')} variant="secondary" className="w-full">
+                    Customize Your 7-Day Plan
+                </Button>
+            </Card>
+
+            <Card className="mt-6">
                 <h3 className="text-xl font-bold mb-4">Data Management</h3>
                 <div className="space-y-4">
                     <Button onClick={handleExportData} variant="secondary" className="w-full">
@@ -1831,6 +1864,132 @@ const ProfilePage = ({ onNavigate }) => {
                  <p className="text-xs text-gray-500 mt-4">
                     Importing data will overwrite your current progress. Use with caution.
                 </p>
+            </Card>
+        </div>
+    );
+};
+
+const CalorieCounter = () => {
+    const [dailyLog, setDailyLog] = useState({ goal: 2000, foods: [] });
+    const [newFood, setNewFood] = useState({ name: '', calories: '' });
+    const today = new Date().toISOString().split('T')[0];
+
+    useEffect(() => {
+        const allLogs = getFromStorage(LOCAL_STORAGE_KEYS.CALORIE_LOGS) || {};
+        const todayLog = allLogs[today] || { goal: 2000, foods: [] };
+        setDailyLog(todayLog);
+    }, [today]);
+
+    const saveLog = (log) => {
+        const allLogs = getFromStorage(LOCAL_STORAGE_KEYS.CALORIE_LOGS) || {};
+        allLogs[today] = log;
+        saveToStorage(LOCAL_STORAGE_KEYS.CALORIE_LOGS, allLogs);
+    };
+
+    const handleGoalChange = (e) => {
+        const newGoal = parseInt(e.target.value, 10) || 0;
+        const newLog = { ...dailyLog, goal: newGoal };
+        setDailyLog(newLog);
+        saveLog(newLog);
+    };
+
+    const handleAddFood = (e) => {
+        e.preventDefault();
+        if (newFood.name && newFood.calories > 0) {
+            const newLog = {
+                ...dailyLog,
+                foods: [...dailyLog.foods, { ...newFood, id: generateId() }]
+            };
+            setDailyLog(newLog);
+            saveLog(newLog);
+            setNewFood({ name: '', calories: '' });
+        }
+    };
+
+    const handleRemoveFood = (id) => {
+        const newLog = {
+            ...dailyLog,
+            foods: dailyLog.foods.filter(food => food.id !== id)
+        };
+        setDailyLog(newLog);
+        saveLog(newLog);
+    };
+
+    const totalCalories = useMemo(() => {
+        return dailyLog.foods.reduce((sum, food) => sum + parseInt(food.calories, 10), 0);
+    }, [dailyLog.foods]);
+
+    const remainingCalories = dailyLog.goal - totalCalories;
+    const progress = dailyLog.goal > 0 ? (totalCalories / dailyLog.goal) * 100 : 0;
+
+    return (
+        <div className="p-4 max-w-lg mx-auto">
+            <div className="text-left py-8">
+                <h1 className="text-5xl font-light">Calorie</h1>
+                <h1 className="text-5xl font-semibold">Tracker</h1>
+            </div>
+
+            <Card>
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-bold">Daily Goal</h3>
+                    <div className="flex items-center">
+                        <input 
+                            type="number"
+                            value={dailyLog.goal}
+                            onChange={handleGoalChange}
+                            className="w-24 p-2 border rounded-md text-right"
+                        />
+                        <span className="ml-2">kcal</span>
+                    </div>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-4">
+                    <div 
+                        className="bg-green-500 h-4 rounded-full"
+                        style={{ width: `${Math.min(progress, 100)}%` }}
+                    ></div>
+                </div>
+                <div className="flex justify-between mt-2 text-sm">
+                    <span>Consumed: {totalCalories} kcal</span>
+                    <span>Remaining: {remainingCalories} kcal</span>
+                </div>
+            </Card>
+
+            <Card className="mt-6">
+                <h3 className="text-xl font-bold mb-4">Log Food</h3>
+                <form onSubmit={handleAddFood} className="flex gap-2 mb-4">
+                    <input 
+                        type="text"
+                        placeholder="Food name"
+                        value={newFood.name}
+                        onChange={e => setNewFood({...newFood, name: e.target.value})}
+                        className="w-full p-2 border rounded-md"
+                    />
+                    <NumberStepper 
+                        value={parseInt(newFood.calories) || 0}
+                        onChange={(newCals) => setNewFood({...newFood, calories: String(newCals)})}
+                        step={50}
+                    />
+                    <Button type="submit" className="px-4 py-2">+</Button>
+                </form>
+                <div>
+                    {dailyLog.foods.length === 0 ? (
+                        <p className="text-center text-gray-500">No food logged today.</p>
+                    ) : (
+                        <ul className="space-y-2">
+                            {dailyLog.foods.map(food => (
+                                <li key={food.id} className="flex justify-between items-center p-2 bg-gray-100 rounded-md">
+                                    <span>{food.name}</span>
+                                    <div className="flex items-center gap-2">
+                                        <span>{food.calories} kcal</span>
+                                        <button onClick={() => handleRemoveFood(food.id)} className="text-red-500 hover:text-red-700">
+                                            <XCircle size={18}/>
+                                        </button>
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
             </Card>
         </div>
     );
@@ -1889,6 +2048,8 @@ export default function App() {
                  return <MediaManager exerciseName={navParams.exerciseName} onBack={() => handleNavigation('dayDetail', { logId: navParams.logId })} />;
             case 'analytics':
                 return <WorkoutAnalytics />;
+            case 'calorieCounter':
+                return <CalorieCounter />;
             case 'profile':
                  return <ProfilePage onNavigate={handleNavigation} />;
             default:
@@ -1956,7 +2117,7 @@ export default function App() {
                 <div className="fixed bottom-4 left-1/2 -translate-x-1/2 w-11/12 max-w-sm">
                     <div className="bg-[#494358] rounded-full p-2 flex items-center justify-around">
                         <NavItem screen="home" icon={<LayoutGrid size={24} />} currentScreen={appState} />
-                        <NavItem screen="schedule" icon={<Calendar size={24} />} currentScreen={appState} />
+                        <NavItem screen="calorieCounter" icon={<Flame size={24} />} currentScreen={appState} />
                         <NavItem screen="analytics" icon={<BarChart2 size={24} />} currentScreen={appState} />
                         <NavItem screen="profile" icon={<User size={24} />} currentScreen={appState} />
                     </div>
