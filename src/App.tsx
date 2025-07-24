@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { ArrowLeft, Dumbbell, Calendar, Target, TrendingUp, Image as ImageIcon, CheckCircle, XCircle, Clock, Plus, Trash2, Edit, Save, BarChart2, Search, Undo, Lock, LayoutGrid, User } from 'lucide-react';
+import { ArrowLeft, Dumbbell, Calendar, Target, TrendingUp, Image as ImageIcon, CheckCircle, XCircle, Clock, Plus, Trash2, Edit, Save, BarChart2, Search, Undo, Lock, LayoutGrid, User, Camera } from 'lucide-react';
 
 // --- Local Storage Helper Functions ---
 const LOCAL_STORAGE_KEYS = {
@@ -198,43 +198,118 @@ const SimplePieChart = ({ data, title }) => {
 };
 
 // --- Onboarding Components ---
-const GoalSelector = ({ onNext }) => {
-    const goals = ['Back', 'Shoulder', 'Arm', 'Chest', 'Abs', 'Butt', 'Leg', 'Full Body'];
-    const [selectedGoals, setSelectedGoals] = useState([]);
+const ProfileSetup = ({ onNext, profileData, setProfileData }) => {
+    const { name, age, gender, photo } = profileData;
+    const fileInputRef = useRef(null);
 
-    const toggleGoal = (goal) => {
-        setSelectedGoals(prev =>
-            prev.includes(goal) ? prev.filter(g => g !== goal) : [...prev, goal]
-        );
-    };
-
-    const handleNext = () => {
-        if (selectedGoals.length === 0) {
-            alert("Please select at least one goal.");
-            return;
+    const handlePhotoChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setProfileData(prev => ({ ...prev, photo: reader.result }));
+            };
+            reader.readAsDataURL(file);
         }
-        const profile = getFromStorage(LOCAL_STORAGE_KEYS.USER_PROFILE) || {};
-        profile.goals = selectedGoals;
-        saveToStorage(LOCAL_STORAGE_KEYS.USER_PROFILE, profile);
-        onNext();
     };
+
+    const isComplete = name && age && gender;
 
     return (
         <div className="text-center p-4">
-            <h1 className="text-3xl font-bold text-gray-800 mb-2">What's your goal?</h1>
-            <p className="text-gray-600 mb-8">Pick as many as you want. This will help tailor your plan.</p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-                {goals.map(goal => (
-                    <button
-                        key={goal}
-                        onClick={() => toggleGoal(goal)}
-                        className={`p-4 rounded-full text-lg font-medium transition-all duration-200 ${selectedGoals.includes(goal) ? 'bg-[#494358] text-white scale-105' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'}`}
+            <h1 className="text-3xl font-bold text-gray-800 mb-2">Tell Us About Yourself</h1>
+            <p className="text-gray-600 mb-8">This helps us personalize your experience.</p>
+            
+            <div className="flex flex-col items-center mb-6">
+                <div className="relative w-32 h-32 rounded-full bg-gray-200 mb-4 flex items-center justify-center overflow-hidden">
+                    {photo ? (
+                        <img src={photo} alt="Profile" className="w-full h-full object-cover" />
+                    ) : (
+                        <User size={64} className="text-gray-400" />
+                    )}
+                    <button 
+                        onClick={() => fileInputRef.current.click()}
+                        className="absolute bottom-1 right-1 bg-white rounded-full p-2 shadow-md hover:bg-gray-100"
                     >
-                        {goal}
+                        <Camera size={20} className="text-gray-600" />
+                    </button>
+                    <input 
+                        type="file" 
+                        ref={fileInputRef} 
+                        className="hidden" 
+                        accept="image/*" 
+                        onChange={handlePhotoChange} 
+                    />
+                </div>
+            </div>
+
+            <div className="space-y-4 max-w-sm mx-auto">
+                <input
+                    type="text"
+                    placeholder="Name"
+                    value={name}
+                    onChange={(e) => setProfileData(p => ({ ...p, name: e.target.value }))}
+                    className="w-full p-3 border rounded-lg text-lg"
+                />
+                <input
+                    type="number"
+                    placeholder="Age"
+                    value={age}
+                    onChange={(e) => setProfileData(p => ({ ...p, age: e.target.value }))}
+                    className="w-full p-3 border rounded-lg text-lg"
+                />
+                <select
+                    value={gender}
+                    onChange={(e) => setProfileData(p => ({ ...p, gender: e.target.value }))}
+                    className="w-full p-3 border rounded-lg text-lg bg-white"
+                >
+                    <option value="">Select Gender</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                    <option value="prefer_not_to_say">Prefer not to say</option>
+                </select>
+            </div>
+
+            <div className="mt-8">
+                <Button onClick={onNext} disabled={!isComplete}>Next</Button>
+            </div>
+        </div>
+    );
+};
+
+const FitnessLevelSelector = ({ onFinish, onBack, profileData, setProfileData }) => {
+    const levels = ['Beginner', 'Intermediate', 'Advanced'];
+
+    const handleSelect = (level) => {
+        setProfileData(p => ({ ...p, fitnessLevel: level }));
+    };
+    
+    const handleFinishClick = () => {
+        const finalProfile = {
+            ...profileData,
+            fitnessLevel: profileData.fitnessLevel
+        };
+        saveToStorage(LOCAL_STORAGE_KEYS.USER_PROFILE, finalProfile);
+        onFinish();
+    };
+
+    return (
+        <div className="text-center p-4 flex flex-col justify-center h-full">
+            <h1 className="text-3xl font-bold text-gray-800 mb-2">What is your fitness level?</h1>
+            <p className="text-gray-600 mb-8">This helps in suggesting workout intensities.</p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
+                {levels.map(level => (
+                    <button
+                        key={level}
+                        onClick={() => handleSelect(level)}
+                        className={`p-4 rounded-full text-lg font-medium transition-all duration-200 w-full sm:w-48 ${profileData.fitnessLevel === level ? 'bg-[#494358] text-white scale-105' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'}`}
+                    >
+                        {level}
                     </button>
                 ))}
             </div>
-            <Button onClick={handleNext} disabled={selectedGoals.length === 0}>Next</Button>
+            <OnboardingNavigation onNext={handleFinishClick} onBack={onBack} />
         </div>
     );
 };
@@ -358,16 +433,19 @@ const OnboardingNavigation = ({ onNext, onBack }) => (
     </div>
 );
 
-const WeightSelector = ({ onNext, onBack, weightInKg, setWeightInKg }) => {
+const WeightSelector = ({ onNext, onBack, profileData, setProfileData }) => {
     const [weightUnit, setWeightUnit] = useState('kg');
+    const weightInKg = profileData.weight || 70;
 
     const handleWeightChange = useCallback((newValue) => {
+        let weightInKgValue;
         if (weightUnit === 'kg') {
-            setWeightInKg(newValue);
+            weightInKgValue = newValue;
         } else {
-            setWeightInKg(newValue / 2.20462);
+            weightInKgValue = newValue / 2.20462;
         }
-    }, [weightUnit, setWeightInKg]);
+        setProfileData(p => ({ ...p, weight: weightInKgValue }));
+    }, [weightUnit, setProfileData]);
 
     const weightSliderProps = useMemo(() => (weightUnit === 'kg' 
         ? { min: 30, max: 150, value: Math.round(weightInKg) }
@@ -401,17 +479,19 @@ const WeightSelector = ({ onNext, onBack, weightInKg, setWeightInKg }) => {
     );
 };
 
-const HeightSelector = ({ onNext, onBack, heightInCm, setHeightInCm }) => {
+const HeightSelector = ({ onNext, onBack, profileData, setProfileData }) => {
     const [heightUnit, setHeightUnit] = useState('cm');
+    const heightInCm = profileData.height || 170;
 
     const handleHeightChange = useCallback((newValue) => {
+        let heightInCmValue;
         if (heightUnit === 'cm') {
-            setHeightInCm(newValue);
+            heightInCmValue = newValue;
         } else {
-            const inches = newValue;
-            setHeightInCm(inches * 2.54);
+            heightInCmValue = newValue * 2.54;
         }
-    }, [heightUnit, setHeightInCm]);
+        setProfileData(p => ({ ...p, height: heightInCmValue }));
+    }, [heightUnit, setProfileData]);
 
     const heightSliderProps = useMemo(() => {
         if (heightUnit === 'cm') {
@@ -457,64 +537,28 @@ const HeightSelector = ({ onNext, onBack, heightInCm, setHeightInCm }) => {
     );
 };
 
-const BmiDisplay = ({ onFinish, onBack, weightInKg, heightInCm }) => {
-    const bmiInfo = useMemo(() => {
-        const heightInMeters = heightInCm / 100;
-        if (heightInMeters <= 0) return { bmi: "0.0", color: '#E0E0E0', message: 'Enter height & weight' };
-
-        const bmiValue = weightInKg / (heightInMeters * heightInMeters);
-
-        if (bmiValue < 18.5) return { bmi: bmiValue.toFixed(1), color: '#FFCDD2', message: 'You Are Skinny' };
-        if (bmiValue >= 18.5 && bmiValue <= 24.9) return { bmi: bmiValue.toFixed(1), color: '#C8E6C9', message: 'Somewhat Healthy' };
-        return { bmi: bmiValue.toFixed(1), color: '#FFECB3', message: 'You Are Fat' };
-    }, [heightInCm, weightInKg]);
-
-
-    const handleNext = () => {
-        const totalInches = heightInCm / 2.54;
-        const feet = Math.floor(totalInches / 12);
-        const inches = Math.round(totalInches % 12);
-        
-        const profile = getFromStorage(LOCAL_STORAGE_KEYS.USER_PROFILE) || {};
-        profile.metrics = { 
-            height: { feet, inches }, 
-            weight: Math.round(weightInKg), 
-            bmi: parseFloat(bmiInfo.bmi) || 0 
-        };
-        saveToStorage(LOCAL_STORAGE_KEYS.USER_PROFILE, profile);
-        onFinish();
-    };
-
-    return (
-        <div className="p-4 flex flex-col items-center justify-center h-full">
-            <div 
-                className="w-full max-w-md p-6 sm:p-8 rounded-3xl text-center transition-colors duration-300"
-                style={{ backgroundColor: bmiInfo.color }}
-            >
-                <p className="text-8xl font-bold text-[#262642]">{bmiInfo.bmi}</p>
-                <p className="text-2xl font-semibold mt-2 text-[#262642]">{bmiInfo.message}</p>
-            </div>
-            <OnboardingNavigation onNext={handleNext} onBack={onBack} />
-        </div>
-    );
-};
-
-
 const Onboarding = ({ onFinish }) => {
     const [step, setStep] = useState(0);
-    const [weightInKg, setWeightInKg] = useState(70);
-    const [heightInCm, setHeightInCm] = useState(170);
+    const [profileData, setProfileData] = useState({
+        name: '',
+        age: '',
+        gender: '',
+        photo: null,
+        weight: 70, // default weight in kg
+        height: 170, // default height in cm
+        fitnessLevel: ''
+    });
 
     const steps = [
-        <GoalSelector onNext={() => setStep(1)} />,
-        <WeightSelector onNext={() => setStep(2)} onBack={() => setStep(0)} weightInKg={weightInKg} setWeightInKg={setWeightInKg} />,
-        <HeightSelector onNext={() => setStep(3)} onBack={() => setStep(1)} heightInCm={heightInCm} setHeightInCm={setHeightInCm} />,
-        <BmiDisplay onFinish={onFinish} onBack={() => setStep(2)} weightInKg={weightInKg} heightInCm={heightInCm} />,
+        <ProfileSetup onNext={() => setStep(1)} profileData={profileData} setProfileData={setProfileData} />,
+        <WeightSelector onNext={() => setStep(2)} onBack={() => setStep(0)} profileData={profileData} setProfileData={setProfileData} />,
+        <HeightSelector onNext={() => setStep(3)} onBack={() => setStep(1)} profileData={profileData} setProfileData={setProfileData} />,
+        <FitnessLevelSelector onFinish={onFinish} onBack={() => setStep(2)} profileData={profileData} setProfileData={setProfileData} />,
     ];
 
     return (
         <div className="w-full max-w-4xl mx-auto mt-8 flex flex-col h-screen">
-            <Stepper currentStep={step} totalSteps={steps.length} />
+            <Stepper currentStep={step + 1} totalSteps={steps.length} />
             <div className="flex-grow">
                 {steps[step]}
             </div>
@@ -1075,15 +1119,15 @@ const DayDetail = ({ logId, onBack, onNavigate }) => {
                 {log.exercises.map((ex, exerciseIndex) => (
                     <Card key={exerciseIndex} className={`transition-opacity ${ex.skipped ? 'opacity-50' : 'opacity-100'}`}>
                         <div className="flex justify-between items-start">
-                             <h3 className={`text-xl font-bold mb-3 ${ex.skipped ? 'line-through' : ''}`}>{ex.name}</h3>
-                             <div className="flex items-center space-x-2">
+                           <h3 className={`text-xl font-bold mb-3 ${ex.skipped ? 'line-through' : ''}`}>{ex.name}</h3>
+                           <div className="flex items-center space-x-2">
                                 <button onClick={() => onNavigate('progressGraph', { exerciseName: ex.name, logId: log.id })} className="text-gray-500 hover:text-indigo-600 p-2 rounded-full hover:bg-gray-100">
                                     <BarChart2 size={20} />
                                 </button>
                                 <button onClick={() => onNavigate('mediaManager', { exerciseName: ex.name, logId: log.id })} className="text-gray-500 hover:text-indigo-600 p-2 rounded-full hover:bg-gray-100">
                                     <ImageIcon size={20} />
                                 </button>
-                             </div>
+                           </div>
                         </div>
                         
                         {!ex.skipped && (
@@ -1342,7 +1386,7 @@ export default function App() {
         const profile = getFromStorage(LOCAL_STORAGE_KEYS.USER_PROFILE);
         const workoutPlan = getFromStorage(LOCAL_STORAGE_KEYS.WORKOUT_PLAN);
         
-        if (!profile || !profile.metrics) {
+        if (!profile || !profile.fitnessLevel) {
             setAppState('onboarding');
         } else if (!workoutPlan) {
             setAppState('schedule');
