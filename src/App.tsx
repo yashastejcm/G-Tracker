@@ -81,7 +81,7 @@ const EXERCISE_LIST = [
 ];
 
 // --- Helper Components ---
-const ConfirmationModal = ({ isOpen, title, children, onConfirm, onDiscard, onClose }) => {
+const ConfirmationModal = ({ isOpen, title, children, onConfirm, onDiscard }) => {
     if (!isOpen) return null;
 
     return (
@@ -104,20 +104,16 @@ const ConfirmationModal = ({ isOpen, title, children, onConfirm, onDiscard, onCl
     );
 };
 
-const Stepper = ({ currentStep, totalSteps }) => (
-    <div className="w-full px-4 sm:px-8 mb-6">
-        <div className="flex items-center">
+const OnboardingStepper = ({ currentStep, totalSteps }) => (
+    <div className="w-full px-8 mb-8">
+        <div className="flex items-center gap-2">
             {Array.from({ length: totalSteps }, (_, i) => (
-                <React.Fragment key={i}>
-                    <div className={`flex items-center justify-center w-8 h-8 rounded-full ${i <= currentStep ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-600'}`}>
-                        {i < currentStep ? <CheckCircle size={16} /> : i + 1}
-                    </div>
-                    {i < totalSteps - 1 && <div className={`flex-auto border-t-2 transition-all duration-500 ${i < currentStep ? 'border-indigo-600' : 'border-gray-200'}`}></div>}
-                </React.Fragment>
+                <div key={i} className={`h-1 rounded-full flex-1 ${i < currentStep ? 'bg-indigo-600' : 'bg-gray-300'}`}></div>
             ))}
         </div>
     </div>
 );
+
 
 const Card = ({ children, className = '', ...props }) => (
     <div className={`bg-white dark:bg-gray-800 shadow-lg rounded-xl p-6 ${className}`} {...props}>
@@ -227,6 +223,143 @@ const SimplePieChart = ({ data, title }) => {
 };
 
 // --- Onboarding Components ---
+const RulerSlider = ({ min, max, value, onChange, unit, colorClass }) => {
+    const [isEditing, setIsEditing] = useState(false);
+    const [inputValue, setInputValue] = useState(value);
+    const rulerContainerRef = useRef(null);
+    const rulerRef = useRef(null);
+    const isDragging = useRef(false);
+    const startX = useRef(0);
+    const startTranslate = useRef(0);
+
+    const TICK_SPACING = 14; 
+    const rulerWidth = (max - min) * TICK_SPACING;
+
+    useEffect(() => {
+        if (rulerRef.current && rulerContainerRef.current) {
+            const containerWidth = rulerContainerRef.current.offsetWidth;
+            const initialTranslate = (containerWidth / 2) - ((value - min) * TICK_SPACING);
+            rulerRef.current.style.transform = `translateX(${initialTranslate}px)`;
+            rulerRef.current.style.transition = 'transform 0.3s ease-out';
+        }
+    }, [value, min, max, TICK_SPACING]);
+    
+    useEffect(() => {
+        setInputValue(value);
+    }, [value]);
+
+    const handleValueChange = (newValue) => {
+        const clampedValue = Math.round(Math.max(min, Math.min(max, newValue)));
+        if (clampedValue !== value) {
+            onChange(clampedValue);
+        }
+    };
+
+    const handleInputChange = (e) => {
+        setInputValue(e.target.value);
+    };
+
+    const handleInputBlur = () => {
+        setIsEditing(false);
+        const parsedValue = parseInt(inputValue, 10);
+        if (!isNaN(parsedValue)) {
+            handleValueChange(parsedValue);
+        } else {
+            setInputValue(value); 
+        }
+    };
+
+    const handleInputKeyDown = (e) => {
+        if (e.key === 'Enter') {
+            handleInputBlur();
+        }
+    };
+
+    const handleInteractionStart = (clientX) => {
+        isDragging.current = true;
+        startX.current = clientX;
+        if (rulerRef.current) {
+            const transformMatrix = window.getComputedStyle(rulerRef.current).getPropertyValue('transform');
+            startTranslate.current = transformMatrix !== 'none' ? parseInt(transformMatrix.split(',')[4], 10) : 0;
+            rulerRef.current.style.transition = 'none';
+        }
+    };
+
+    const handleInteractionMove = (clientX) => {
+        if (!isDragging.current || !rulerRef.current || !rulerContainerRef.current) return;
+        
+        const dx = clientX - startX.current;
+        const newTranslate = startTranslate.current + dx;
+        rulerRef.current.style.transform = `translateX(${newTranslate}px)`;
+
+        const containerWidth = rulerContainerRef.current.offsetWidth;
+        const currentValue = min - (newTranslate - containerWidth / 2) / TICK_SPACING;
+        handleValueChange(currentValue);
+    };
+
+    const handleInteractionEnd = () => {
+        isDragging.current = false;
+        if (rulerRef.current) {
+            rulerRef.current.style.transition = 'transform 0.3s ease-out';
+        }
+    };
+
+    const rulerMarks = useMemo(() => {
+        const marks = [];
+        const range = max - min;
+        const isSmallRange = range <= 12;
+
+        for (let i = min; i <= max; i++) {
+            const isMajorTick = isSmallRange ? true : i % 10 === 0;
+            const isMediumTick = !isSmallRange && i % 5 === 0;
+
+            marks.push(
+                <div key={i} style={{ position: 'absolute', left: `${(i - min) * TICK_SPACING}px`, height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end' }}>
+                    {isMajorTick && <span className="absolute text-gray-500 dark:text-gray-400 text-sm" style={{top: '-20px'}}>{i}</span>}
+                    <div className={`w-px ${isMajorTick ? 'h-6' : isMediumTick ? 'h-4' : 'h-2'} bg-gray-400 dark:bg-gray-500`}></div>
+                </div>
+            );
+        }
+        return marks;
+    }, [min, max, TICK_SPACING]);
+
+    return (
+        <div className={`${colorClass} rounded-3xl p-8 flex-grow flex flex-col justify-center items-center`}>
+            {isEditing ? (
+                <input
+                    type="number"
+                    value={inputValue}
+                    onChange={handleInputChange}
+                    onBlur={handleInputBlur}
+                    onKeyDown={handleInputKeyDown}
+                    className="text-7xl font-bold text-gray-800 dark:text-white bg-transparent w-48 text-center outline-none"
+                    autoFocus
+                />
+            ) : (
+                <span onClick={() => setIsEditing(true)} className="text-7xl font-bold text-gray-800 dark:text-white cursor-pointer">{value}</span>
+            )}
+            <span className="text-lg text-gray-600 dark:text-gray-300">{unit}</span>
+            
+            <div 
+                ref={rulerContainerRef}
+                className="w-full h-24 mt-8 relative cursor-grab overflow-hidden select-none"
+                onMouseDown={(e) => handleInteractionStart(e.clientX)}
+                onMouseMove={(e) => handleInteractionMove(e.clientX)}
+                onMouseUp={handleInteractionEnd}
+                onMouseLeave={handleInteractionEnd}
+                onTouchStart={(e) => handleInteractionStart(e.touches[0].clientX)}
+                onTouchMove={(e) => handleInteractionMove(e.touches[0].clientX)}
+                onTouchEnd={handleInteractionEnd}
+            >
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-10 w-1 bg-indigo-900 dark:bg-white rounded-full z-10"></div>
+                <div ref={rulerRef} className="absolute top-1/2 -translate-y-1/2 h-6" style={{ width: `${rulerWidth}px` }}>
+                    {rulerMarks}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const GoalSelector = ({ onNext }) => {
     const goals = ['Back', 'Shoulder', 'Arm', 'Chest', 'Abs', 'Butt', 'Leg', 'Full Body'];
     const [selectedGoals, setSelectedGoals] = useState([]);
@@ -250,8 +383,8 @@ const GoalSelector = ({ onNext }) => {
 
     return (
         <div className="text-center p-4">
-            <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-2">What's your goal?</h1>
-            <p className="text-gray-600 dark:text-gray-300 mb-8">Pick as many as you want. This will help tailor your plan.</p>
+            <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-2">What are your goals?</h1>
+            <p className="text-gray-600 dark:text-gray-300 mb-8">This helps us tailor your experience.</p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
                 {goals.map(goal => (
                     <button
@@ -263,919 +396,206 @@ const GoalSelector = ({ onNext }) => {
                     </button>
                 ))}
             </div>
-            <Button onClick={handleNext} disabled={selectedGoals.length === 0}>Next</Button>
+            <div className="flex justify-center">
+                 <button onClick={handleNext} disabled={selectedGoals.length === 0} className="bg-indigo-900 text-white rounded-lg px-8 py-3 font-semibold flex items-center justify-center gap-4 disabled:opacity-50">
+                    Next <ChevronRight /><ChevronRight />
+                </button>
+            </div>
         </div>
     );
 };
 
-const BodyMetrics = ({ onNext }) => {
-    const [height, setHeight] = useState({ feet: 5, inches: 7 });
-    const [weight, setWeight] = useState(70);
-    const [bmi, setBmi] = useState(null);
-    const [bmiCategory, setBmiCategory] = useState('');
+const WeightInput = ({ onNext, onBack, data, setData }) => {
+    const handleUnitChange = (newUnit) => {
+        if (data.weightUnit === newUnit) return;
 
-    const calculateBmi = useCallback(() => {
-        const heightInMeters = ((height.feet * 12) + height.inches) * 0.0254;
-        if (heightInMeters > 0) {
-            const bmiValue = weight / (heightInMeters * heightInMeters);
-            setBmi(bmiValue.toFixed(1));
-            if (bmiValue < 18.5) setBmiCategory('Needs attention');
-            else if (bmiValue >= 18.5 && bmiValue <= 24.9) setBmiCategory('Healthy!');
-            else setBmiCategory('Needs attention');
+        const currentWeight = data.weight;
+        let newWeight = currentWeight;
+        const KG_TO_LB = 2.20462;
+
+        if (newUnit === 'kg' && data.weightUnit === 'lb') {
+            newWeight = Math.round(currentWeight / KG_TO_LB);
+        } else if (newUnit === 'lb' && data.weightUnit === 'kg') {
+            newWeight = Math.round(currentWeight * KG_TO_LB);
         }
-    }, [height, weight]);
-
-    useEffect(() => {
-        calculateBmi();
-    }, [calculateBmi]);
-
-    const handleNext = () => {
-        const profile = getFromStorage(LOCAL_STORAGE_KEYS.USER_PROFILE) || {};
-        profile.metrics = { height, weight, bmi: bmi || 0 };
-        saveToStorage(LOCAL_STORAGE_KEYS.USER_PROFILE, profile);
-        onNext();
+        setData(d => ({...d, weight: newWeight, weightUnit: newUnit}));
     };
 
-    const getBmiColor = () => {
-        if (!bmi) return 'bg-gray-400';
-        if (bmi < 18.5 || bmi > 24.9) return 'bg-red-500';
-        return 'bg-green-500';
+    const min = data.weightUnit === 'kg' ? 30 : Math.round(30 * 2.20462);
+    const max = data.weightUnit === 'kg' ? 200 : Math.round(200 * 2.20462);
+
+    return (
+        <div className="text-center p-4 flex flex-col h-full">
+            <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-6">What is your weight?</h1>
+            <div className="flex justify-center mb-8">
+                <div className="bg-gray-200 dark:bg-gray-700 rounded-full p-1 flex">
+                    <button onClick={() => handleUnitChange('lb')} className={`px-8 py-2 rounded-full font-semibold ${data.weightUnit === 'lb' ? 'bg-white dark:bg-gray-900 text-indigo-900 dark:text-white' : 'text-gray-500'}`}>lb</button>
+                    <button onClick={() => handleUnitChange('kg')} className={`px-8 py-2 rounded-full font-semibold ${data.weightUnit === 'kg' ? 'bg-indigo-900 text-white' : 'text-gray-500'}`}>kg</button>
+                </div>
+            </div>
+            <RulerSlider 
+                min={min}
+                max={max}
+                value={data.weight}
+                onChange={(newWeight) => setData(d => ({...d, weight: newWeight}))}
+                unit={data.weightUnit}
+                colorClass="bg-yellow-100 dark:bg-yellow-900/20"
+            />
+            <div className="flex justify-between mt-8">
+                <button onClick={onBack} className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-5 py-3">
+                    <ChevronLeft className="text-gray-800 dark:text-white"/>
+                </button>
+                <button onClick={onNext} className="bg-indigo-900 text-white rounded-lg px-8 py-3 font-semibold flex items-center justify-center gap-4">
+                    Next <ChevronRight /><ChevronRight />
+                </button>
+            </div>
+        </div>
+    );
+};
+
+const HeightInput = ({ onNext, onBack, data, setData }) => {
+    const handleUnitChange = (newUnit) => {
+        if (data.heightUnit === newUnit) return;
+
+        const currentHeight = data.height;
+        let newHeight = currentHeight;
+        const CM_TO_FEET = 0.0328084;
+        const FEET_TO_CM = 30.48;
+
+        if (newUnit === 'cm' && data.heightUnit === 'ft') {
+            newHeight = Math.round(currentHeight * FEET_TO_CM);
+        } else if (newUnit === 'ft' && data.heightUnit === 'cm') {
+            newHeight = Math.round(currentHeight * CM_TO_FEET);
+        }
+        setData(d => ({...d, height: newHeight, heightUnit: newUnit}));
+    };
+
+    const min = data.heightUnit === 'cm' ? 120 : 4;
+    const max = data.heightUnit === 'cm' ? 220 : 7;
+
+    return (
+        <div className="text-center p-4 flex flex-col h-full">
+            <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-6">What is your height?</h1>
+            <div className="flex justify-center mb-8">
+                <div className="bg-gray-200 dark:bg-gray-700 rounded-full p-1 flex">
+                    <button onClick={() => handleUnitChange('ft')} className={`px-8 py-2 rounded-full font-semibold ${data.heightUnit === 'ft' ? 'bg-white dark:bg-gray-900 text-indigo-900 dark:text-white' : 'text-gray-500'}`}>ft</button>
+                    <button onClick={() => handleUnitChange('cm')} className={`px-8 py-2 rounded-full font-semibold ${data.heightUnit === 'cm' ? 'bg-indigo-900 text-white' : 'text-gray-500'}`}>cm</button>
+                </div>
+            </div>
+             <RulerSlider 
+                min={min}
+                max={max}
+                value={data.height}
+                onChange={(newHeight) => setData(d => ({...d, height: newHeight}))}
+                unit={data.heightUnit}
+                colorClass="bg-cyan-100 dark:bg-cyan-900/20"
+            />
+            <div className="flex justify-between mt-8">
+                <button onClick={onBack} className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-5 py-3">
+                    <ChevronLeft className="text-gray-800 dark:text-white"/>
+                </button>
+                <button onClick={onNext} className="bg-indigo-900 text-white rounded-lg px-8 py-3 font-semibold flex items-center justify-center gap-4">
+                    Next <ChevronRight /><ChevronRight />
+                </button>
+            </div>
+        </div>
+    );
+};
+
+const BmiDisplay = ({ onFinish, onBack, data }) => {
+    const { bmi, category, color } = useMemo(() => {
+        let heightInMeters;
+        if (data.heightUnit === 'cm') {
+            heightInMeters = data.height / 100;
+        } else { // 'ft'
+            heightInMeters = data.height * 0.3048;
+        }
+
+        let weightInKg;
+        if (data.weightUnit === 'kg') {
+            weightInKg = data.weight;
+        } else { // 'lb'
+            weightInKg = data.weight * 0.453592;
+        }
+        
+        if (heightInMeters > 0) {
+            const bmiValue = weightInKg / (heightInMeters * heightInMeters);
+            const bmiFormatted = bmiValue.toFixed(1);
+            let category = '';
+            let color = '';
+            if (bmiValue < 18.5) {
+                category = 'Underweight';
+                color = 'bg-blue-300 dark:bg-blue-900/30';
+            } else if (bmiValue >= 18.5 && bmiValue <= 24.9) {
+                category = 'Healthy';
+                color = 'bg-green-300 dark:bg-green-900/30';
+            } else if (bmiValue >= 25 && bmiValue <= 29.9) {
+                category = 'Overweight';
+                color = 'bg-yellow-300 dark:bg-yellow-900/30';
+            } else {
+                category = 'Obesity';
+                color = 'bg-red-300 dark:bg-red-900/30';
+            }
+            return { bmi: bmiFormatted, category, color };
+        }
+        return { bmi: 'N/A', category: '', color: 'bg-gray-300' };
+    }, [data]);
+
+    const handleFinish = () => {
+        const profile = getFromStorage(LOCAL_STORAGE_KEYS.USER_PROFILE) || {};
+        profile.metrics = { ...data, bmi };
+        saveToStorage(LOCAL_STORAGE_KEYS.USER_PROFILE, profile);
+        onFinish();
     };
 
     return (
-        <div className="p-4 flex flex-col items-center">
-            <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-8">Your Physical Details</h1>
-            <Card className="w-full max-w-md">
-                <div className="mb-6">
-                    <label className="block text-lg font-medium text-gray-700 dark:text-gray-200 mb-2">Height</label>
-                    <div className="flex gap-4">
-                        <div className="flex-1">
-                            <label className="block text-sm text-gray-500 dark:text-gray-400">Feet</label>
-                            <input type="number" value={height.feet} onChange={e => setHeight(h => ({ ...h, feet: parseInt(e.target.value) || 0 }))} className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
-                        </div>
-                        <div className="flex-1">
-                            <label className="block text-sm text-gray-500 dark:text-gray-400">Inches</label>
-                            <input type="number" value={height.inches} onChange={e => setHeight(h => ({ ...h, inches: parseInt(e.target.value) || 0 }))} className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
-                        </div>
-                    </div>
-                </div>
-                <div className="mb-8">
-                    <label className="block text-lg font-medium text-gray-700 dark:text-gray-200 mb-2">Weight: {weight} kg</label>
-                    <input type="range" min="30" max="200" value={weight} onChange={e => setWeight(parseInt(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700" />
-                </div>
-                {bmi && (
-                    <div className="text-center">
-                        <h2 className="text-xl font-semibold text-gray-800 dark:text-white">Your BMI: {bmi}</h2>
-                        <div className="w-full bg-gray-200 rounded-full h-4 my-2 dark:bg-gray-700">
-                            <div className={`${getBmiColor()} h-4 rounded-full`} style={{ width: `${Math.min(100, (bmi / 40) * 100)}%` }}></div>
-                        </div>
-                        <p className={`font-bold ${getBmiColor().replace('bg-', 'text-')}`}>{bmiCategory}</p>
-                    </div>
-                )}
-            </Card>
-            <Button onClick={handleNext} className="mt-8">Next</Button>
+        <div className="text-center p-4 flex flex-col h-full">
+            <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-6">Your Body Mass Index</h1>
+            <div className={`${color} rounded-3xl p-8 flex-grow flex flex-col justify-center items-center`}>
+                <span className="text-7xl font-bold text-gray-800 dark:text-white">{bmi}</span>
+                <span className="text-2xl text-gray-700 dark:text-gray-200 mt-2">{category}</span>
+            </div>
+            <div className="flex justify-between mt-8">
+                <button onClick={onBack} className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-5 py-3">
+                    <ChevronLeft className="text-gray-800 dark:text-white"/>
+                </button>
+                <button onClick={handleFinish} className="bg-indigo-900 text-white rounded-lg px-8 py-3 font-semibold">
+                    Start Now
+                </button>
+            </div>
         </div>
     );
 };
+
 
 const Onboarding = ({ onFinish }) => {
     const [step, setStep] = useState(0);
+    const [data, setData] = useState({
+        weight: 70,
+        weightUnit: 'kg',
+        height: 170,
+        heightUnit: 'cm',
+    });
+
+    const next = () => setStep(s => s + 1);
+    const back = () => setStep(s => s - 1);
+
     const steps = [
-        <GoalSelector onNext={() => setStep(1)} />,
-        <BodyMetrics onNext={onFinish} />,
+        <GoalSelector onNext={next} />,
+        <WeightInput onNext={next} onBack={back} data={data} setData={setData} />,
+        <HeightInput onNext={next} onBack={back} data={data} setData={setData} />,
+        <BmiDisplay onFinish={onFinish} onBack={back} data={data} />,
     ];
 
     return (
-        <div className="w-full max-w-4xl mx-auto mt-8">
-            <Stepper currentStep={step} totalSteps={steps.length} />
-            {steps[step]}
-        </div>
-    );
-};
-
-// --- Main App Components ---
-const AddExerciseModal = ({ isOpen, onClose, onAddExercises, goals }) => {
-    const [searchTerm, setSearchTerm] = useState('');
-    const [muscleFilter, setMuscleFilter] = useState('All');
-    const [selectedExercises, setSelectedExercises] = useState([]);
-    const [customExercise, setCustomExercise] = useState('');
-    
-    const muscleGroups = useMemo(() => {
-        const allMuscles = [...new Set(EXERCISE_LIST.map(e => e.muscle))];
-        const sortedMuscles = allMuscles.sort((a, b) => {
-            const aIsGoal = goals.includes(a);
-            const bIsGoal = goals.includes(b);
-            if (aIsGoal && !bIsGoal) return -1;
-            if (!aIsGoal && bIsGoal) return 1;
-            return a.localeCompare(b);
-        });
-        return ['All', ...sortedMuscles];
-    }, [goals]);
-
-    const filteredExercises = useMemo(() => {
-        return EXERCISE_LIST.filter(ex => 
-            (muscleFilter === 'All' || ex.muscle === muscleFilter) &&
-            ex.name.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-    }, [searchTerm, muscleFilter]);
-
-    const toggleExerciseSelection = (exercise) => {
-        setSelectedExercises(prev => 
-            prev.some(e => e.name === exercise.name)
-                ? prev.filter(e => e.name !== exercise.name)
-                : [...prev, exercise]
-        );
-    };
-
-    const handleAdd = () => {
-        const exercisesToAdd = [...selectedExercises];
-        if (customExercise.trim()) {
-            exercisesToAdd.push({ name: customExercise.trim(), muscle: 'Custom', type: 'Custom' });
-        }
-        onAddExercises(exercisesToAdd);
-        setSelectedExercises([]);
-        setCustomExercise('');
-        setSearchTerm('');
-        setMuscleFilter('All');
-        onClose();
-    };
-
-    if (!isOpen) return null;
-
-    return (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
-                <div className="p-4 border-b dark:border-gray-700">
-                    <h2 className="text-2xl font-bold dark:text-white">Add Exercises</h2>
-                </div>
-                <div className="p-4 flex-shrink-0">
-                    <div className="flex flex-col sm:flex-row gap-4">
-                         <div className="relative flex-grow">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-                            <input 
-                                type="text"
-                                placeholder="Search exercises..."
-                                value={searchTerm}
-                                onChange={e => setSearchTerm(e.target.value)}
-                                className="w-full p-2 pl-10 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                            />
-                        </div>
-                        <select 
-                            value={muscleFilter} 
-                            onChange={e => setMuscleFilter(e.target.value)}
-                            className="p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                        >
-                            {muscleGroups.map(m => <option key={m} value={m}>{m}</option>)}
-                        </select>
-                    </div>
-                </div>
-                <div className="p-4 overflow-y-auto flex-grow">
-                    <ul className="space-y-2">
-                        {filteredExercises.map(ex => (
-                            <li key={ex.name} onClick={() => toggleExerciseSelection(ex)} className={`p-3 rounded-md cursor-pointer flex justify-between items-center transition-colors ${selectedExercises.some(e => e.name === ex.name) ? 'bg-indigo-100 dark:bg-indigo-900' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
-                                <div>
-                                    <span className="font-semibold dark:text-white">{ex.name}</span>
-                                    <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">{ex.muscle}</span>
-                                </div>
-                                <input type="checkbox" readOnly checked={selectedExercises.some(e => e.name === ex.name)} className="form-checkbox h-5 w-5 text-indigo-600 rounded" />
-                            </li>
-                        ))}
-                    </ul>
-                     <div className="mt-4 pt-4 border-t dark:border-gray-700">
-                        <input
-                            type="text"
-                            placeholder="Or add a custom exercise"
-                            value={customExercise}
-                            onChange={e => setCustomExercise(e.target.value)}
-                            className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                        />
-                    </div>
-                </div>
-                <div className="p-4 border-t dark:border-gray-700 flex justify-end gap-4">
-                    <Button onClick={onClose} variant="secondary">Cancel</Button>
-                    <Button onClick={handleAdd} disabled={selectedExercises.length === 0 && !customExercise.trim()}>Add</Button>
-                </div>
+        <div className="w-full max-w-md mx-auto mt-8 h-[80vh] flex flex-col">
+            <OnboardingStepper currentStep={step + 1} totalSteps={steps.length} />
+            <div className="flex-grow">
+                {steps[step]}
             </div>
         </div>
     );
 };
-
-const ScheduleCreator = ({ onScheduleCreated, setHasUnsavedChanges, saveScheduleRef, revertChangesRef }) => {
-    const days = useMemo(() => ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Day 7'], []);
-    const [workoutPlan, setWorkoutPlan] = useState(() => days.reduce((acc, day) => ({ ...acc, [day]: { name: '', exercises: [] } }), {}));
-    const [initialPlan, setInitialPlan] = useState(null);
-    const [editingDay, setEditingDay] = useState(null);
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [userGoals, setUserGoals] = useState([]);
-
-    useEffect(() => {
-        const profile = getFromStorage(LOCAL_STORAGE_KEYS.USER_PROFILE) || {};
-        if (profile.goals) {
-            setUserGoals(profile.goals);
-        }
-
-        const existingPlan = getFromStorage(LOCAL_STORAGE_KEYS.WORKOUT_PLAN) || days.reduce((acc, day) => ({ ...acc, [day]: { name: '', exercises: [] } }), {});
-        setWorkoutPlan(existingPlan);
-        setInitialPlan(JSON.parse(JSON.stringify(existingPlan))); // Deep copy
-    }, []);
-
-    const handleAddExercises = (newExercises) => {
-        const exercisesWithDefaults = newExercises.map(ex => ({ name: ex.name, muscle: ex.muscle, sets: [{ reps: 10, weight: 10 }], notes: '' }));
-        setWorkoutPlan(prev => ({
-            ...prev,
-            [editingDay]: { ...prev[editingDay], exercises: [...prev[editingDay].exercises, ...exercisesWithDefaults] }
-        }));
-        setHasUnsavedChanges(true);
-    };
-    
-    const removeExercise = (day, index) => {
-        setWorkoutPlan(prev => ({
-            ...prev,
-            [day]: { ...prev[day], exercises: prev[day].exercises.filter((_, i) => i !== index) }
-        }));
-        setHasUnsavedChanges(true);
-    };
-
-    const handleDayNameChange = (day, name) => {
-        setWorkoutPlan(prev => ({
-            ...prev,
-            [day]: { ...prev[day], name: name }
-        }));
-        setHasUnsavedChanges(true);
-    };
-
-    const saveSchedule = useCallback(() => {
-        saveToStorage(LOCAL_STORAGE_KEYS.WORKOUT_PLAN, workoutPlan);
-        setInitialPlan(JSON.parse(JSON.stringify(workoutPlan))); // Update initial state on save
-        const logs = [];
-        let dayCounter = 0;
-        for (let i = 0; i < 7; i++) {
-            const dayKey = `Day ${i + 1}`;
-            const dayPlan = workoutPlan[dayKey];
-            if (dayPlan.exercises && dayPlan.exercises.length > 0) {
-                const nextDate = new Date();
-                nextDate.setDate(nextDate.getDate() + dayCounter);
-                logs.push({
-                    id: generateId(), day: String(i + 1), planDay: dayKey, name: dayPlan.name || '', date: nextDate.toISOString().split('T')[0], completed: false, skipped: false,
-                    exercises: dayPlan.exercises.map(ex => ({ ...ex, sets: ex.sets || [{reps: 10, weight: 10}], logged: false, notes: ex.notes || '' }))
-                });
-            }
-            dayCounter++;
-        }
-        saveToStorage(LOCAL_STORAGE_KEYS.LOGS, logs);
-        setHasUnsavedChanges(false);
-        alert("Schedule updated successfully!");
-        onScheduleCreated();
-    }, [workoutPlan, onScheduleCreated, setHasUnsavedChanges]);
-
-    const revertChanges = useCallback(() => {
-        setWorkoutPlan(initialPlan);
-        setHasUnsavedChanges(false);
-    }, [initialPlan, setHasUnsavedChanges]);
-
-    useEffect(() => {
-        if (saveScheduleRef) saveScheduleRef.current = saveSchedule;
-        if (revertChangesRef) revertChangesRef.current = revertChanges;
-    }, [saveSchedule, revertChanges, saveScheduleRef, revertChangesRef]);
-
-    if (editingDay) {
-        return (
-            <>
-                <div className="p-4 max-w-lg mx-auto">
-                    <h2 className="text-2xl font-bold mb-4 dark:text-white text-center">Editing {editingDay}</h2>
-                    <Card>
-                        <div className="mb-4">
-                            <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Custom Day Name (Optional)</label>
-                            <input type="text" placeholder="e.g., Chest & Triceps" value={workoutPlan[editingDay].name} onChange={(e) => handleDayNameChange(editingDay, e.target.value)} className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
-                        </div>
-                        <div className="mb-4 h-px bg-gray-200 dark:bg-gray-700"></div>
-                        {workoutPlan[editingDay].exercises.length === 0 ? (
-                             <p className="text-center text-gray-500 dark:text-gray-400">No exercises added yet.</p>
-                        ) : (
-                            <div className="mb-4 space-y-2">
-                                {workoutPlan[editingDay].exercises.map((ex, index) => (
-                                    <div key={index} className="flex justify-between items-center p-2 bg-gray-100 dark:bg-gray-700 rounded-md">
-                                        <span className="dark:text-gray-200">{ex.name}</span>
-                                        <button onClick={() => removeExercise(editingDay, index)} className="text-red-500 hover:text-red-700">
-                                            <Trash2 size={18} />
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                        <div className="flex gap-4 mt-6">
-                            <Button onClick={() => setIsModalOpen(true)} variant="secondary" className="w-full">
-                                <Plus size={18} className="inline-block mr-2"/> Add Exercise
-                            </Button>
-                            <Button onClick={() => setEditingDay(null)} className="w-full bg-green-500 hover:bg-green-600 focus:ring-green-500">
-                                Confirm
-                            </Button>
-                        </div>
-                    </Card>
-                </div>
-                <AddExerciseModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onAddExercises={handleAddExercises} goals={userGoals} />
-            </>
-        );
-    }
-
-    return (
-        <div className="p-4">
-            <h1 className="text-3xl font-bold text-center mb-2 dark:text-white">Your Weekly Plan</h1>
-            <p className="text-center text-gray-600 dark:text-gray-400 mb-8">Tap a day to add or edit exercises. This will reset your timeline.</p>
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {days.map(day => (
-                    <Card key={day} className="cursor-pointer hover:shadow-xl transition-shadow" onClick={() => setEditingDay(day)}>
-                        <h3 className="font-bold text-xl mb-2 dark:text-white">{day}</h3>
-                        <p className="text-indigo-500 font-semibold truncate mb-2">{workoutPlan[day].name || '...'}</p>
-                        {workoutPlan[day].exercises && workoutPlan[day].exercises.length > 0 ? (
-                            <ul className="list-disc list-inside text-gray-600 dark:text-gray-300">
-                                {workoutPlan[day].exercises.slice(0,2).map((ex, i) => <li key={i}>{ex.name}</li>)}
-                                {workoutPlan[day].exercises.length > 2 && <li>...</li>}
-                            </ul>
-                        ) : (
-                            <p className="text-gray-500 dark:text-gray-400">Rest Day</p>
-                        )}
-                        <div className="text-indigo-500 font-semibold mt-4 flex items-center">Edit Day <Edit size={16} className="ml-2" /></div>
-                    </Card>
-                ))}
-            </div>
-            <div className="text-center mt-8">
-                <Button onClick={saveSchedule}>Update Schedule</Button>
-            </div>
-        </div>
-    );
-};
-
-const HomeScreen = ({ onNavigate }) => {
-    const [logs, setLogs] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const itemRefs = useRef([]);
-
-    useEffect(() => {
-        const savedLogs = getFromStorage(LOCAL_STORAGE_KEYS.LOGS) || [];
-        setLogs(savedLogs);
-        setLoading(false);
-    }, []);
-
-    const calculateStreak = (logs) => {
-        const completedWorkouts = logs
-            .filter(log => log.completed && log.exercises && log.exercises.length > 0)
-            .map(log => log.date);
-
-        if (completedWorkouts.length === 0) {
-            return 0;
-        }
-
-        const uniqueDates = [...new Set(completedWorkouts)].sort();
-        
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        const lastWorkoutDate = new Date(uniqueDates[uniqueDates.length - 1]);
-        lastWorkoutDate.setHours(0, 0, 0, 0);
-
-        const diffTime = today - lastWorkoutDate;
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-        if (diffDays > 1) {
-            return 0;
-        }
-
-        let streak = 1;
-        for (let i = uniqueDates.length - 1; i > 0; i--) {
-            const currentDate = new Date(uniqueDates[i]);
-            const previousDate = new Date(uniqueDates[i - 1]);
-            currentDate.setHours(0, 0, 0, 0);
-            previousDate.setHours(0, 0, 0, 0);
-
-            const dayDiff = (currentDate - previousDate) / (1000 * 60 * 60 * 24);
-
-            if (dayDiff === 1) {
-                streak++;
-            } else {
-                break;
-            }
-        }
-
-        return streak;
-    };
-
-    const streak = useMemo(() => calculateStreak(logs), [logs]);
-
-    const getDayName = (log) => {
-        if (log.name && log.name.trim() !== '') return log.name;
-        if (!log.exercises || log.exercises.length === 0) return "Rest Day";
-        const muscles = [...new Set(log.exercises.map(e => e.muscle).filter(Boolean))];
-        if (muscles.length === 0) return 'Workout';
-        return muscles.join(' & ');
-    };
-
-    const timelineDays = useMemo(() => {
-        const sortedLogs = [...logs].sort((a, b) => parseInt(a.day) - parseInt(b.day));
-        const activeLog = sortedLogs.find(l => !l.completed);
-
-        return sortedLogs.map(log => {
-            const isRestDay = !log.exercises || log.exercises.length === 0;
-            const name = getDayName(log);
-            
-            let status = 'locked';
-            if (log.completed) {
-                status = 'completed';
-            } else if (activeLog && log.id === activeLog.id) {
-                status = 'current';
-            }
-            
-            return {
-                dayKey: `Day ${log.day}`,
-                name,
-                isRestDay,
-                status,
-                logId: log.id,
-                date: log.date,
-            };
-        });
-    }, [logs]);
-
-    useEffect(() => {
-        if (!loading && timelineDays.length > 0) {
-            const currentIndex = timelineDays.findIndex(day => day.status === 'current');
-            if (currentIndex !== -1 && itemRefs.current[currentIndex]) {
-                setTimeout(() => {
-                    itemRefs.current[currentIndex]?.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'center'
-                    });
-                }, 100);
-            }
-        }
-    }, [loading, timelineDays]);
-
-    if (loading) {
-        return <div className="text-center p-10 dark:text-white">Loading your timeline...</div>;
-    }
-
-    if (timelineDays.length === 0) {
-        return (
-             <div className="text-center p-10">
-                <h2 className="text-2xl font-bold mb-4 dark:text-white">Welcome!</h2>
-                <p className="text-gray-600 dark:text-gray-300 mb-6">You haven't set up a schedule yet. Let's create one!</p>
-                <Button onClick={() => onNavigate('schedule')}>Create Schedule</Button>
-            </div>
-        )
-    }
-
-    return (
-        <div className="p-4 max-w-md mx-auto relative">
-             {streak > 0 && (
-                <div className="absolute top-4 right-4 bg-orange-100 dark:bg-gray-700 text-orange-600 dark:text-orange-400 font-bold px-3 py-1 rounded-full flex items-center text-lg shadow-sm">
-                    <span>🔥</span>
-                    <span className="ml-1">{streak}</span>
-                </div>
-            )}
-            <h1 className="text-3xl font-bold mb-8 text-center dark:text-white">Workout Timeline</h1>
-            <div className="space-y-4">
-                {timelineDays.map((day, index) => {
-                    const cardRef = el => itemRefs.current[index] = el;
-
-                    if (day.status === 'current') {
-                        return (
-                            <div ref={cardRef} key={day.dayKey} className="bg-indigo-600 text-white rounded-xl shadow-lg p-4 flex justify-between items-center">
-                                <div>
-                                    <h2 className="font-bold text-2xl">{day.dayKey}</h2>
-                                    <p className="opacity-90">{day.name}</p>
-                                    <p className="text-sm opacity-70 mt-1">{new Date(day.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
-                                </div>
-                                {!day.isRestDay && (
-                                    <button onClick={() => onNavigate('dayDetail', { logId: day.logId })} className="bg-white text-indigo-600 font-bold py-2 px-5 rounded-lg shadow-md hover:bg-gray-200">
-                                        Start
-                                    </button>
-                                )}
-                            </div>
-                        );
-                    }
-                    
-                    const isClickable = day.status === 'completed' && day.logId;
-                    return (
-                        <div ref={cardRef} key={day.dayKey} onClick={() => isClickable && onNavigate('dayDetail', { logId: day.logId })} className={`bg-white dark:bg-gray-800 rounded-xl shadow-md p-4 flex justify-between items-center ${day.status === 'completed' ? 'opacity-50' : ''} ${isClickable ? 'cursor-pointer' : 'cursor-default'}`}>
-                            <div>
-                                <h2 className="font-bold text-2xl dark:text-white">{day.dayKey}</h2>
-                                <p className="text-gray-500 dark:text-gray-400">{day.name}</p>
-                                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{new Date(day.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
-                            </div>
-                            {day.status === 'completed' 
-                                ? <CheckCircle className="text-green-500" size={24} /> 
-                                : <Lock className="text-gray-400" size={24} />
-                            }
-                        </div>
-                    );
-                })}
-            </div>
-        </div>
-    );
-};
-
-const DayDetail = ({ logId, onBack, onNavigate }) => {
-    const [log, setLog] = useState(null);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        const logs = getFromStorage(LOCAL_STORAGE_KEYS.LOGS) || [];
-        const foundLog = logs.find(l => l.id === logId);
-        if (foundLog) {
-            foundLog.exercises = foundLog.exercises.map(ex => ({
-                ...ex, 
-                sets: ex.sets || [], 
-                skipped: ex.skipped || false 
-            }));
-            setLog(foundLog);
-        }
-        setLoading(false);
-    }, [logId]);
-    
-    const updateLog = (updatedExercises) => {
-        const logs = getFromStorage(LOCAL_STORAGE_KEYS.LOGS) || [];
-        const logIndex = logs.findIndex(l => l.id === logId);
-        if (logIndex !== -1) {
-            logs[logIndex].exercises = updatedExercises;
-            saveToStorage(LOCAL_STORAGE_KEYS.LOGS, logs);
-        }
-    };
-
-    const handleSetChange = (exerciseIndex, setIndex, field, value) => {
-        const newLog = { ...log };
-        const parsedValue = parseFloat(value) || 0;
-        newLog.exercises[exerciseIndex].sets[setIndex][field] = parsedValue;
-        if (!newLog.exercises[exerciseIndex].logged) {
-            newLog.exercises[exerciseIndex].logged = true;
-        }
-        setLog(newLog);
-        updateLog(newLog.exercises);
-    };
-
-    const handleNoteChange = (exerciseIndex, value) => {
-        const newLog = { ...log };
-        newLog.exercises[exerciseIndex].notes = value;
-        setLog(newLog);
-        updateLog(newLog.exercises);
-    };
-
-    const addSet = (exerciseIndex) => {
-        const newLog = { ...log };
-        const currentSets = newLog.exercises[exerciseIndex].sets;
-        const lastSet = currentSets.length > 0 ? currentSets[currentSets.length - 1] : { reps: 10, weight: 10 };
-        newLog.exercises[exerciseIndex].sets.push({ ...lastSet });
-        if (!newLog.exercises[exerciseIndex].logged) {
-            newLog.exercises[exerciseIndex].logged = true;
-        }
-        setLog(newLog);
-        updateLog(newLog.exercises);
-    };
-
-    const removeSet = (exerciseIndex, setIndex) => {
-        const newLog = { ...log };
-        newLog.exercises[exerciseIndex].sets.splice(setIndex, 1);
-        if (newLog.exercises[exerciseIndex].sets.length === 0 && !newLog.exercises[exerciseIndex].skipped) {
-            newLog.exercises[exerciseIndex].logged = false;
-        }
-        setLog(newLog);
-        updateLog(newLog.exercises);
-    };
-
-    const toggleSkipExercise = (exerciseIndex) => {
-        const newLog = { ...log };
-        const exercise = newLog.exercises[exerciseIndex];
-        exercise.skipped = !exercise.skipped;
-        if (exercise.skipped) {
-            exercise.sets = [];
-        }
-        setLog(newLog);
-        updateLog(newLog.exercises);
-    };
-
-    const markDayAsComplete = () => {
-        // 1. Mark current log as complete
-        const logs = getFromStorage(LOCAL_STORAGE_KEYS.LOGS) || [];
-        const logIndex = logs.findIndex(l => l.id === logId);
-        if (logIndex !== -1) {
-            logs[logIndex].completed = true;
-            saveToStorage(LOCAL_STORAGE_KEYS.LOGS, logs);
-        }
-
-        // 2. Save progress for analytics
-        const exerciseProgress = getFromStorage(LOCAL_STORAGE_KEYS.EXERCISE_PROGRESS) || [];
-        log.exercises.forEach((ex) => {
-            if (!ex.skipped && ex.logged && ex.sets && ex.sets.length > 0) {
-                const heaviestSet = ex.sets.reduce((maxSet, currentSet) => 
-                    currentSet.weight > maxSet.weight ? currentSet : maxSet, ex.sets[0]);
-                exerciseProgress.push({
-                    id: generateId(),
-                    exerciseName: ex.name,
-                    date: log.date,
-                    reps: heaviestSet.reps,
-                    weight: heaviestSet.weight,
-                    muscle: ex.muscle || 'Custom'
-                });
-            }
-        });
-        saveToStorage(LOCAL_STORAGE_KEYS.EXERCISE_PROGRESS, exerciseProgress);
-        
-        // 3. Check if we need to generate the next cycle
-        const futureLogs = logs.filter(l => !l.completed);
-        
-        if (futureLogs.length <= 1) { 
-            const plan = getFromStorage(LOCAL_STORAGE_KEYS.WORKOUT_PLAN) || {};
-            const lastDayIndex = Math.max(0, ...logs.map(l => parseInt(l.day)));
-            const lastDayDate = new Date(Math.max(...logs.map(l => new Date(l.date))));
-
-            for (let i = 0; i < 7; i++) {
-                const planDayKey = `Day ${i + 1}`;
-                const dayPlan = plan[planDayKey];
-
-                if (dayPlan && dayPlan.exercises && dayPlan.exercises.length > 0) {
-                    const nextDate = new Date(lastDayDate);
-                    nextDate.setDate(nextDate.getDate() + i + 1);
-
-                    logs.push({
-                        id: generateId(),
-                        day: String(lastDayIndex + i + 1),
-                        planDay: planDayKey,
-                        name: dayPlan.name || '',
-                        date: nextDate.toISOString().split('T')[0],
-                        completed: false,
-                        skipped: false,
-                        exercises: dayPlan.exercises.map(ex => ({ 
-                            ...ex, 
-                            sets: ex.sets || [{reps: 10, weight: 10}], 
-                            logged: false, 
-                            notes: ex.notes || '' 
-                        }))
-                    });
-                }
-            }
-            saveToStorage(LOCAL_STORAGE_KEYS.LOGS, logs);
-        }
-
-        onBack();
-    };
-
-    if (loading) return <div className="text-center p-10 dark:text-white">Loading exercises...</div>;
-    if (!log) return <div className="text-center p-10 text-red-500">Could not load workout details.</div>;
-
-    const allExercisesHandled = log.exercises.every(ex => (ex.sets && ex.sets.length > 0) || ex.skipped);
-
-    return (
-        <div className="p-4">
-            <button onClick={onBack} className="flex items-center text-indigo-600 mb-4"><ArrowLeft size={18} className="mr-2"/> Back to Timeline</button>
-            <h1 className="text-3xl font-bold mb-2 dark:text-white">Day {log.day} Workout</h1>
-            <p className="text-gray-500 dark:text-gray-400 mb-6">{new Date(log.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
-
-            <div className="space-y-4">
-                {log.exercises.map((ex, exerciseIndex) => (
-                    <Card key={exerciseIndex} className={`transition-opacity ${ex.skipped ? 'opacity-50' : 'opacity-100'}`}>
-                        <div className="flex justify-between items-start">
-                             <h3 className={`text-xl font-bold mb-3 dark:text-white ${ex.skipped ? 'line-through' : ''}`}>{ex.name}</h3>
-                             <div className="flex items-center space-x-2">
-                                <button onClick={() => onNavigate('exerciseDetailAnalytics', { exerciseName: ex.name, logId: log.id })} className="text-gray-500 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400">
-                                    <BarChart2 size={20} />
-                                </button>
-                                <button onClick={() => onNavigate('mediaManager', { exerciseName: ex.name, logDate: log.date, logId: log.id })} className="text-gray-500 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400">
-                                    <ImageIcon size={20} />
-                                </button>
-                             </div>
-                        </div>
-                        
-                        {!ex.skipped && (
-                            <>
-                                <div className="grid grid-cols-12 gap-2 mb-2 px-2 text-sm font-semibold text-gray-500 dark:text-gray-400">
-                                    <div className="col-span-2">Set</div>
-                                    <div className="col-span-4">Weight (kg)</div>
-                                    <div className="col-span-4">Reps</div>
-                                    <div className="col-span-2"></div>
-                                </div>
-
-                                <div className="space-y-2">
-                                    {ex.sets.map((set, setIndex) => (
-                                        <div key={setIndex} className="grid grid-cols-12 gap-2 items-center">
-                                            <div className="col-span-2 text-center font-medium dark:text-white">{setIndex + 1}</div>
-                                            <div className="col-span-4">
-                                                <input type="number" step="0.5" value={set.weight} onChange={e => handleSetChange(exerciseIndex, setIndex, 'weight', e.target.value)} className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
-                                            </div>
-                                            <div className="col-span-4">
-                                                <input type="number" value={set.reps} onChange={e => handleSetChange(exerciseIndex, setIndex, 'reps', e.target.value)} className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
-                                            </div>
-                                            <div className="col-span-2 text-right">
-                                                <button onClick={() => removeSet(exerciseIndex, setIndex)} className="text-red-500 hover:text-red-700 p-2">
-                                                    <Trash2 size={18} />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </>
-                        )}
-                        
-                        <div className="flex gap-2 mt-4">
-                            {!ex.skipped ? (
-                                <>
-                                <Button onClick={() => addSet(exerciseIndex)} variant="secondary" className="w-full py-2">
-                                    <Plus size={18} className="inline-block mr-2" /> Add Set
-                                </Button>
-                                <button onClick={() => toggleSkipExercise(exerciseIndex)} className="bg-red-500 text-white rounded-lg px-4 py-2 font-semibold shadow-md hover:bg-red-600">
-                                    Give Up
-                                </button>
-                                </>
-                            ) : (
-                                <Button onClick={() => toggleSkipExercise(exerciseIndex)} variant="secondary" className="w-full py-2">
-                                    <Undo size={18} className="inline-block mr-2" /> Undo Skip
-                                </Button>
-                            )}
-                        </div>
-
-                        <div className="mt-4">
-                            <label className="block text-sm font-medium text-gray-500 dark:text-gray-400">Notes</label>
-                            <textarea value={ex.notes || ''} onChange={e => handleNoteChange(exerciseIndex, e.target.value)} rows="2" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white" placeholder="e.g., 'Felt strong today'"></textarea>
-                        </div>
-                    </Card>
-                ))}
-            </div>
-            <div className="mt-8 text-center">
-                <Button onClick={markDayAsComplete} disabled={!allExercisesHandled || log.completed}>
-                    {log.completed ? 'Workout Completed' : 'Mark Day as Complete'}
-                </Button>
-                 {!allExercisesHandled && <p className="text-sm text-gray-500 mt-2">Log or skip each exercise to complete the day.</p>}
-            </div>
-        </div>
-    );
-};
-
-const MediaManager = ({ exerciseName, logDate, onBack }) => {
-    const [media, setMedia] = useState(null);
-    const [caption, setCaption] = useState('');
-
-    const handleFileChange = (event) => {
-        const file = event.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setMedia({
-                    type: file.type.split('/')[0],
-                    base64: reader.result,
-                });
-            };
-            reader.readAsDataURL(file);
-        }
-    };
-
-    const saveMedia = () => {
-        if (!media) {
-            alert("Please select a file first.");
-            return;
-        }
-        
-        const allMedia = getFromStorage(LOCAL_STORAGE_KEYS.EXERCISE_MEDIA) || {};
-        const exerciseMediaHistory = allMedia[exerciseName] || [];
-        
-        exerciseMediaHistory.push({
-            date: logDate,
-            type: media.type,
-            base64: media.base64,
-            caption: caption
-        });
-
-        allMedia[exerciseName] = exerciseMediaHistory;
-        saveToStorage(LOCAL_STORAGE_KEYS.EXERCISE_MEDIA, allMedia);
-        
-        alert("Media saved to history!");
-        onBack();
-    };
-
-    return (
-        <div className="p-4 max-w-lg mx-auto">
-            <button onClick={onBack} className="flex items-center text-indigo-600 mb-4"><ArrowLeft size={18} className="mr-2"/> Back</button>
-            <h2 className="text-2xl font-bold mb-4 dark:text-white">Add Media for {exerciseName}</h2>
-            <Card>
-                <div className="mb-4">
-                    <label className="block text-lg font-medium text-gray-700 dark:text-gray-200 mb-2">Attach Image/Video</label>
-                    <input type="file" accept="image/*,video/*" onChange={handleFileChange} className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"/>
-                </div>
-                {media && (
-                    <div className="my-4">
-                        {media.type === 'image' && <img src={media.base64} alt="Preview" className="rounded-lg max-h-60 mx-auto"/>}
-                        {media.type === 'video' && <video src={media.base64} controls className="rounded-lg max-h-60 mx-auto"></video>}
-                    </div>
-                )}
-                <div className="mb-4">
-                    <label className="block text-lg font-medium text-gray-700 dark:text-gray-200 mb-2">Caption</label>
-                    <input type="text" value={caption} onChange={e => setCaption(e.target.value)} placeholder="e.g., Correct Pushup Form" className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
-                </div>
-                <Button onClick={saveMedia}>Save Media</Button>
-            </Card>
-        </div>
-    );
-};
-
-const ImageHistoryViewer = ({ exerciseName }) => {
-    const [history, setHistory] = useState([]);
-    const [currentIndex, setCurrentIndex] = useState(0);
-    const [fade, setFade] = useState(true);
-    const intervalRef = useRef(null);
-
-    useEffect(() => {
-        const allMedia = getFromStorage(LOCAL_STORAGE_KEYS.EXERCISE_MEDIA) || {};
-        const exerciseMediaHistory = (allMedia[exerciseName] || []).sort((a, b) => new Date(a.date) - new Date(b.date));
-        setHistory(exerciseMediaHistory);
-    }, [exerciseName]);
-
-    const goToNext = useCallback(() => {
-        setFade(false);
-        setTimeout(() => {
-            setCurrentIndex(prevIndex => (prevIndex + 1) % history.length);
-            setFade(true);
-        }, 500); // Corresponds to fade-out duration
-    }, [history.length]);
-
-    const goToPrevious = () => {
-        setFade(false);
-        setTimeout(() => {
-            setCurrentIndex(prevIndex => (prevIndex - 1 + history.length) % history.length);
-            setFade(true);
-        }, 500);
-    };
-
-    useEffect(() => {
-        if (history.length > 1) {
-            intervalRef.current = setInterval(goToNext, 800);
-        }
-        return () => clearInterval(intervalRef.current);
-    }, [history.length, goToNext]);
-
-    if (history.length === 0) {
-        return <p className="text-gray-500 dark:text-gray-400 text-center mt-4">No image history for this exercise.</p>;
-    }
-
-    const currentMedia = history[currentIndex];
-
-    return (
-        <div className="w-full mt-6">
-            <h4 className="text-center mb-4 font-semibold dark:text-white">Image History</h4>
-            <div className="relative w-full max-w-md mx-auto aspect-video bg-gray-200 dark:bg-gray-700 rounded-lg shadow-inner overflow-hidden">
-                <img 
-                    key={currentIndex}
-                    src={currentMedia.base64} 
-                    alt={currentMedia.caption || `Image from ${new Date(currentMedia.date).toLocaleDateString()}`}
-                    className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-500 ${fade ? 'opacity-100' : 'opacity-0'}`}
-                />
-                {history.length > 1 && (
-                    <>
-                        <button onClick={goToPrevious} className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 text-white p-2 rounded-full hover:bg-black/50 transition-colors">
-                            <ChevronLeft size={24} />
-                        </button>
-                        <button onClick={goToNext} className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/30 text-white p-2 rounded-full hover:bg-black/50 transition-colors">
-                            <ChevronRight size={24} />
-                        </button>
-                    </>
-                )}
-            </div>
-            <div className="text-center mt-2">
-                <p className="font-semibold dark:text-white">{currentMedia.caption}</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">{new Date(currentMedia.date).toLocaleDateString()}</p>
-            </div>
-        </div>
-    );
-};
-
-
-const ExerciseDetailAnalytics = ({ exerciseName, onBack }) => {
-    const [progressData, setProgressData] = useState([]);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        const exerciseProgress = getFromStorage(LOCAL_STORAGE_KEYS.EXERCISE_PROGRESS) || [];
-        const filteredData = exerciseProgress
-            .filter(d => d.exerciseName === exerciseName)
-            .sort((a, b) => new Date(a.date) - new Date(b.date))
-            .map(d => ({...d, date: new Date(d.date).toLocaleDateString('en-ca')}));
-        
-        setProgressData(filteredData);
-        setLoading(false);
-    }, [exerciseName]);
-
-    if (loading) return <div className="text-center p-10 dark:text-white">Loading analytics...</div>;
-    
-    return (
-        <div className="p-4">
-            <button onClick={onBack} className="flex items-center text-indigo-600 mb-4"><ArrowLeft size={18} className="mr-2"/> Back</button>
-            <h2 className="text-3xl font-bold mb-6 text-center dark:text-white">Analytics for {exerciseName}</h2>
-            <Card className="mb-6">
-                <SimpleLineChart data={progressData} title="Weight Progress" />
-            </Card>
-            <Card>
-                <ImageHistoryViewer exerciseName={exerciseName} />
-            </Card>
-        </div>
-    );
-};
-
 
 const ProfileScreen = ({ theme, setTheme }) => {
     const [analyticsData, setAnalyticsData] = useState(null);
@@ -1377,11 +797,19 @@ export default function App() {
 
     return (
         <div className="bg-gray-50 dark:bg-gray-900 min-h-screen font-sans">
+            <style>
+                {`
+                    @import url('https://fonts.googleapis.com/css2?family=Montserrat+Alternates:wght@400;500;600;700&display=swap');
+                    body, .font-sans {
+                        font-family: 'Montserrat Alternates', sans-serif;
+                    }
+                `}
+            </style>
             <main className={`pb-20 transition-all duration-300 ${!showNav ? 'pt-0' : 'pt-4'}`}>
                 {renderContent()}
             </main>
             {showNav && (
-                <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shadow-lg">
+                <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shadow-lg z-20">
                     <div className="max-w-4xl mx-auto grid grid-cols-3 gap-1 sm:gap-2 p-1">
                         <NavItem screen="schedule" icon={<Edit size={24} />} label="Plan" />
                         <NavItem screen="home" icon={<Calendar size={24} />} label="Timeline" />
