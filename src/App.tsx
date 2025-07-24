@@ -79,6 +79,69 @@ const EXERCISE_LIST = [
     { "name": "Cable Woodchopper", "muscle": "Abs", "type": "Isolation" }
 ];
 
+// --- Workout Plan Generation Logic ---
+const getExercisesByMuscles = (muscles) => {
+    return EXERCISE_LIST.filter(ex => muscles.includes(ex.muscle));
+};
+
+const PRECONFIGURED_PLANS = {
+    Beginner: {
+        3: {
+            'Day 1': { name: 'Full Body A', exercises: getExercisesByMuscles(['Chest', 'Back', 'Leg']).slice(0, 5) },
+            'Day 2': { name: 'Rest Day', exercises: [] },
+            'Day 3': { name: 'Full Body B', exercises: getExercisesByMuscles(['Shoulder', 'Arm', 'Abs']).slice(0, 5) },
+            'Day 4': { name: 'Rest Day', exercises: [] },
+            'Day 5': { name: 'Full Body A', exercises: getExercisesByMuscles(['Chest', 'Back', 'Leg']).slice(0, 5) },
+            'Day 6': { name: 'Rest Day', exercises: [] },
+            'Day 7': { name: 'Rest Day', exercises: [] },
+        },
+        // Other day counts for Beginner can be added here
+    },
+    Intermediate: {
+        4: {
+            'Day 1': { name: 'Upper Body A', exercises: getExercisesByMuscles(['Chest', 'Back', 'Shoulder']).slice(0, 6) },
+            'Day 2': { name: 'Lower Body A', exercises: getExercisesByMuscles(['Leg', 'Butt', 'Abs']).slice(0, 6) },
+            'Day 3': { name: 'Rest Day', exercises: [] },
+            'Day 4': { name: 'Upper Body B', exercises: getExercisesByMuscles(['Chest', 'Back', 'Arm']).slice(0, 6) },
+            'Day 5': { name: 'Lower Body B', exercises: getExercisesByMuscles(['Leg', 'Butt', 'Abs']).slice(0, 6) },
+            'Day 6': { name: 'Rest Day', exercises: [] },
+            'Day 7': { name: 'Rest Day', exercises: [] },
+        },
+    },
+    Advanced: {
+        5: {
+            'Day 1': { name: 'Push Day', exercises: getExercisesByMuscles(['Chest', 'Shoulder']).filter(e => e.type === 'Compound').slice(0, 5) },
+            'Day 2': { name: 'Pull Day', exercises: getExercisesByMuscles(['Back']).slice(0, 5) },
+            'Day 3': { name: 'Leg Day', exercises: getExercisesByMuscles(['Leg', 'Butt']).slice(0, 5) },
+            'Day 4': { name: 'Rest Day', exercises: [] },
+            'Day 5': { name: 'Upper Body', exercises: getExercisesByMuscles(['Chest', 'Back', 'Shoulder', 'Arm']).slice(0, 6) },
+            'Day 6': { name: 'Lower Body', exercises: getExercisesByMuscles(['Leg', 'Butt', 'Abs']).slice(0, 6) },
+            'Day 7': { name: 'Rest Day', exercises: [] },
+        }
+    }
+};
+
+const generateWorkoutPlan = (level, days) => {
+    // Default to a simple plan if the specific combo doesn't exist
+    const planTemplate = PRECONFIGURED_PLANS[level]?.[days] || PRECONFIGURED_PLANS.Beginner[3];
+    
+    // Format exercises with default sets
+    const formattedPlan = {};
+    for (const dayKey in planTemplate) {
+        formattedPlan[dayKey] = {
+            name: planTemplate[dayKey].name,
+            exercises: planTemplate[dayKey].exercises.map(ex => ({
+                name: ex.name,
+                muscle: ex.muscle,
+                sets: [{ reps: 10, weight: 10 }],
+                notes: ''
+            }))
+        };
+    }
+    return formattedPlan;
+};
+
+
 // --- Helper Components ---
 const Stepper = ({ currentStep, totalSteps }) => (
     <div className="w-full px-8 mb-8">
@@ -274,42 +337,6 @@ const ProfileSetup = ({ onNext, profileData, setProfileData }) => {
             <div className="mt-8">
                 <Button onClick={onNext} disabled={!isComplete}>Next</Button>
             </div>
-        </div>
-    );
-};
-
-const FitnessLevelSelector = ({ onFinish, onBack, profileData, setProfileData }) => {
-    const levels = ['Beginner', 'Intermediate', 'Advanced'];
-
-    const handleSelect = (level) => {
-        setProfileData(p => ({ ...p, fitnessLevel: level }));
-    };
-    
-    const handleFinishClick = () => {
-        const finalProfile = {
-            ...profileData,
-            fitnessLevel: profileData.fitnessLevel
-        };
-        saveToStorage(LOCAL_STORAGE_KEYS.USER_PROFILE, finalProfile);
-        onFinish();
-    };
-
-    return (
-        <div className="text-center p-4 flex flex-col justify-center h-full">
-            <h1 className="text-3xl font-bold text-gray-800 mb-2">What is your fitness level?</h1>
-            <p className="text-gray-600 mb-8">This helps in suggesting workout intensities.</p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
-                {levels.map(level => (
-                    <button
-                        key={level}
-                        onClick={() => handleSelect(level)}
-                        className={`p-4 rounded-full text-lg font-medium transition-all duration-200 w-full sm:w-48 ${profileData.fitnessLevel === level ? 'bg-[#494358] text-white scale-105' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'}`}
-                    >
-                        {level}
-                    </button>
-                ))}
-            </div>
-            <OnboardingNavigation onNext={handleFinishClick} onBack={onBack} />
         </div>
     );
 };
@@ -537,6 +564,191 @@ const HeightSelector = ({ onNext, onBack, profileData, setProfileData }) => {
     );
 };
 
+const PlanConfiguration = ({ onFinish, onBack, profileData, setProfileData }) => {
+    const levels = ['Beginner', 'Intermediate', 'Advanced'];
+    const dayOptions = [3, 4, 5, 6, 7];
+    const [selectedDays, setSelectedDays] = useState(null);
+    const [workoutPlan, setWorkoutPlan] = useState(null);
+    const [editingDay, setEditingDay] = useState(null);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+
+    const handleLevelSelect = (level) => {
+        setProfileData(p => ({ ...p, fitnessLevel: level }));
+        setSelectedDays(null); // Reset day selection when level changes
+        setWorkoutPlan(null);
+    };
+
+    const handleDaySelect = (days) => {
+        setSelectedDays(days);
+        const plan = generateWorkoutPlan(profileData.fitnessLevel, days);
+        setWorkoutPlan(plan);
+    };
+
+    const handleFinalizePlan = () => {
+        saveToStorage(LOCAL_STORAGE_KEYS.USER_PROFILE, profileData);
+        saveToStorage(LOCAL_STORAGE_KEYS.WORKOUT_PLAN, workoutPlan);
+
+        const logs = [];
+        let dayCounter = 0;
+        for (let i = 0; i < 7; i++) {
+            const dayKey = `Day ${i + 1}`;
+            const dayPlan = workoutPlan[dayKey];
+            if (dayPlan && dayPlan.exercises.length > 0) {
+                const nextDate = new Date();
+                nextDate.setDate(nextDate.getDate() + dayCounter);
+                logs.push({
+                    id: generateId(),
+                    day: String(i + 1),
+                    planDay: dayKey,
+                    name: dayPlan.name || '',
+                    date: nextDate.toISOString().split('T')[0],
+                    completed: false,
+                    skipped: false,
+                    exercises: dayPlan.exercises
+                });
+            }
+             dayCounter++;
+        }
+        saveToStorage(LOCAL_STORAGE_KEYS.LOGS, logs);
+        onFinish();
+    };
+
+    const handleAddExercises = (newExercises) => {
+        const exercisesWithDefaults = newExercises.map(ex => ({
+            name: ex.name,
+            muscle: ex.muscle,
+            sets: [{ reps: 10, weight: 10 }],
+            notes: ''
+        }));
+        setWorkoutPlan(prev => ({
+            ...prev,
+            [editingDay]: {
+                ...prev[editingDay],
+                exercises: [...prev[editingDay].exercises, ...exercisesWithDefaults]
+            }
+        }));
+    };
+
+    const removeExercise = (day, index) => {
+        setWorkoutPlan(prev => ({
+            ...prev,
+            [day]: {
+                ...prev[day],
+                exercises: prev[day].exercises.filter((_, i) => i !== index)
+            }
+        }));
+    };
+
+    if (editingDay) {
+        return (
+            <>
+                <div className="p-4 max-w-lg mx-auto">
+                    <h2 className="text-2xl font-bold mb-4 text-center">Editing {workoutPlan[editingDay].name || editingDay}</h2>
+                    <Card>
+                         {workoutPlan[editingDay].exercises.length === 0 ? (
+                            <p className="text-center text-gray-500">No exercises added yet.</p>
+                        ) : (
+                            <div className="mb-4 space-y-2">
+                                {workoutPlan[editingDay].exercises.map((ex, index) => (
+                                    <div key={index} className="flex justify-between items-center p-2 bg-gray-100 rounded-md">
+                                        <span>{ex.name}</span>
+                                        <button onClick={() => removeExercise(editingDay, index)} className="text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-100">
+                                            <Trash2 size={18} />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        <div className="flex gap-4 mt-6">
+                            <Button onClick={() => setIsModalOpen(true)} variant="secondary" className="w-full">
+                                <Plus size={18} className="inline-block mr-2"/> Add Exercise
+                            </Button>
+                            <Button onClick={() => setEditingDay(null)} variant="primary" className="w-full">
+                                Confirm
+                            </Button>
+                        </div>
+                    </Card>
+                </div>
+                <AddExerciseModal 
+                    isOpen={isModalOpen}
+                    onClose={() => setIsModalOpen(false)}
+                    onAddExercises={handleAddExercises}
+                    goals={[]}
+                />
+            </>
+        )
+    }
+
+    return (
+        <div className="p-4">
+            <h1 className="text-3xl font-bold text-gray-800 mb-2 text-center">Configure Your Plan</h1>
+            <p className="text-gray-600 mb-8 text-center">Select your level, then choose how many days you want to work out.</p>
+
+            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
+                {levels.map(level => (
+                    <button
+                        key={level}
+                        onClick={() => handleLevelSelect(level)}
+                        className={`p-4 rounded-full text-lg font-medium transition-all duration-200 w-full sm:w-48 ${profileData.fitnessLevel === level ? 'bg-[#494358] text-white scale-105' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'}`}
+                    >
+                        {level}
+                    </button>
+                ))}
+            </div>
+
+            {profileData.fitnessLevel && (
+                 <div className="my-8">
+                    <div className="flex justify-center items-center gap-2 sm:gap-4 bg-gray-100 p-2 rounded-full max-w-xl mx-auto">
+                        {dayOptions.map(days => (
+                            <button 
+                                key={days}
+                                onClick={() => handleDaySelect(days)}
+                                className={`flex-1 py-2 px-3 rounded-full font-semibold transition-colors ${selectedDays === days ? 'bg-white shadow' : 'bg-transparent'} ${days === 7 ? 'text-red-500' : 'text-gray-700'}`}
+                            >
+                                {days} Days
+                            </button>
+                        ))}
+                    </div>
+                 </div>
+            )}
+
+            {workoutPlan && (
+                <div className="mt-8">
+                    <h2 className="text-2xl font-bold text-center mb-4">Your Pre-configured Plan</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                        {Object.keys(workoutPlan).map(day => (
+                            <Card key={day}>
+                                <h3 className="font-bold text-xl mb-2">{day}</h3>
+                                <p className="text-[#494358] font-semibold truncate mb-2">{workoutPlan[day].name || 'Rest Day'}</p>
+                                {workoutPlan[day].exercises && workoutPlan[day].exercises.length > 0 ? (
+                                    <ul className="list-disc list-inside text-gray-600 text-sm">
+                                        {workoutPlan[day].exercises.slice(0,3).map((ex, i) => <li key={i} className="truncate">{ex.name}</li>)}
+                                        {workoutPlan[day].exercises.length > 3 && <li>...</li>}
+                                    </ul>
+                                ) : (
+                                    <p className="text-gray-500 text-sm">Rest Day</p>
+                                )}
+                                <button onClick={() => setEditingDay(day)} className="text-[#494358] font-semibold mt-4 flex items-center text-sm hover:underline">
+                                    Edit Day <Edit size={14} className="ml-1" />
+                                </button>
+                            </Card>
+                        ))}
+                    </div>
+                    <div className="text-center mt-8">
+                        <Button onClick={handleFinalizePlan}>Proceed with this Workout</Button>
+                    </div>
+                </div>
+            )}
+
+            <div className="fixed bottom-8 left-1/2 -translate-x-1/2">
+                 <button onClick={onBack} className="w-14 h-14 rounded-full bg-white border border-gray-200 flex items-center justify-center">
+                    <ArrowLeft size={24} className="text-gray-800" />
+                </button>
+            </div>
+        </div>
+    );
+};
+
 const Onboarding = ({ onFinish }) => {
     const [step, setStep] = useState(0);
     const [profileData, setProfileData] = useState({
@@ -553,7 +765,7 @@ const Onboarding = ({ onFinish }) => {
         <ProfileSetup onNext={() => setStep(1)} profileData={profileData} setProfileData={setProfileData} />,
         <WeightSelector onNext={() => setStep(2)} onBack={() => setStep(0)} profileData={profileData} setProfileData={setProfileData} />,
         <HeightSelector onNext={() => setStep(3)} onBack={() => setStep(1)} profileData={profileData} setProfileData={setProfileData} />,
-        <FitnessLevelSelector onFinish={onFinish} onBack={() => setStep(2)} profileData={profileData} setProfileData={setProfileData} />,
+        <PlanConfiguration onFinish={onFinish} onBack={() => setStep(2)} profileData={profileData} setProfileData={setProfileData} />,
     ];
 
     return (
@@ -1415,7 +1627,7 @@ export default function App() {
 
         switch (appState) {
             case 'onboarding':
-                return <Onboarding onFinish={() => setAppState('schedule')} />;
+                return <Onboarding onFinish={() => setAppState('home')} />;
             case 'schedule':
                 return <ScheduleCreator onScheduleCreated={() => setAppState('home')} />;
             case 'home':
