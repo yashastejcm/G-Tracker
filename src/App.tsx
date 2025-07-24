@@ -1571,55 +1571,111 @@ const MediaManager = ({ exerciseName, onBack }) => {
 };
 
 const WorkoutAnalytics = () => {
-    const [analyticsData, setAnalyticsData] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [logs, setLogs] = useState([]);
+    const [currentDate, setCurrentDate] = useState(new Date());
+    const [progressData, setProgressData] = useState({});
+    const [availableExercises, setAvailableExercises] = useState([]);
+    const [selectedExercise, setSelectedExercise] = useState('');
 
     useEffect(() => {
-        const logs = getFromStorage(LOCAL_STORAGE_KEYS.LOGS) || [];
-        const completedLogs = logs.filter(log => log.completed);
+        const savedLogs = getFromStorage(LOCAL_STORAGE_KEYS.LOGS) || [];
+        setLogs(savedLogs);
 
-        if (completedLogs.length === 0) {
-            setAnalyticsData(null);
-            setLoading(false);
-            return;
-        }
-
-        const totalVolume = completedLogs.reduce((total, log) => 
-            total + log.exercises.reduce((exTotal, ex) => 
-                exTotal + (ex.sets ? ex.sets.reduce((setTotal, set) => setTotal + (set.reps * set.weight), 0) : 0)
-            , 0)
-        , 0);
-
-        const muscleCounts = completedLogs.reduce((acc, log) => {
-            log.exercises.forEach(ex => {
-                if(!ex.skipped){
-                    const muscle = ex.muscle || 'Other';
-                    acc[muscle] = (acc[muscle] || 0) + 1;
-                }
-            });
-            return acc;
-        }, {});
-        const muscleFrequencyData = Object.entries(muscleCounts).map(([name, value]) => ({ name, value }));
-        
         const exerciseProgress = getFromStorage(LOCAL_STORAGE_KEYS.EXERCISE_PROGRESS) || [];
-        const weightProgress = exerciseProgress.reduce((acc, curr) => {
+        const groupedProgress = exerciseProgress.reduce((acc, curr) => {
             if (!acc[curr.exerciseName]) {
                 acc[curr.exerciseName] = [];
             }
-            acc[curr.exerciseName].push({ date: curr.date, weight: curr.weight });
+            acc[curr.exerciseName].push({ date: new Date(curr.date).toLocaleDateString('en-ca'), weight: curr.weight });
             return acc;
         }, {});
 
-        setAnalyticsData({
-            totalVolume,
-            weightProgress,
-            muscleFrequencyData
-        });
+        for (const exercise in groupedProgress) {
+            groupedProgress[exercise].sort((a, b) => new Date(a.date) - new Date(b.date));
+        }
+
+        setProgressData(groupedProgress);
+        const exercises = Object.keys(groupedProgress);
+        setAvailableExercises(exercises);
+        if (exercises.length > 0) {
+            setSelectedExercise(exercises[0]);
+        }
+
         setLoading(false);
     }, []);
 
+    const renderCalendar = () => {
+        const month = currentDate.getMonth();
+        const year = currentDate.getFullYear();
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+        const days = [];
+        for (let i = 0; i < firstDay; i++) {
+            days.push(<div key={`empty-${i}`} className="w-10 h-10"></div>);
+        }
+
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const logForDay = logs.find(l => l.date === dateStr);
+            let dayClass = "w-10 h-10 flex items-center justify-center rounded-full";
+            if (logForDay) {
+                if (logForDay.completed) {
+                    dayClass += " bg-green-500 text-white";
+                } else if (logForDay.skipped) {
+                    dayClass += " bg-red-500 text-white";
+                }
+            }
+            days.push(<div key={day} className={dayClass}>{day}</div>);
+        }
+
+        return (
+            <Card>
+                <div className="flex justify-between items-center mb-4">
+                    <button onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() - 1)))}>&lt;</button>
+                    <h3 className="text-xl font-bold">{currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</h3>
+                    <button onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() + 1)))}>&gt;</button>
+                </div>
+                <div className="grid grid-cols-7 gap-2 text-center">
+                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => <div key={day} className="font-semibold">{day}</div>)}
+                    {days}
+                </div>
+            </Card>
+        );
+    };
+    
+    const renderProgressChart = () => {
+        if (availableExercises.length === 0) {
+            return (
+                <Card className="mt-6">
+                    <h3 className="text-xl font-bold mb-4 text-center">Exercise Progress</h3>
+                    <p className="text-center text-gray-500">Log some workouts to see your progress!</p>
+                </Card>
+            );
+        }
+
+        return (
+            <Card className="mt-6">
+                <h3 className="text-xl font-bold mb-4 text-center">Exercise Progress</h3>
+                <select
+                    value={selectedExercise}
+                    onChange={(e) => setSelectedExercise(e.target.value)}
+                    className="w-full p-2 border rounded-md mb-4 bg-white"
+                >
+                    {availableExercises.map(ex => (
+                        <option key={ex} value={ex}>{ex}</option>
+                    ))}
+                </select>
+                <SimpleLineChart
+                    data={progressData[selectedExercise] || []}
+                    title={`Weight Progress: ${selectedExercise}`}
+                />
+            </Card>
+        );
+    };
+
     if (loading) return <div className="text-center p-10">Loading analytics...</div>;
-    if (!analyticsData) return <div className="text-center p-10">No workout data available to generate analytics.</div>;
 
     return (
         <div className="p-4 space-y-6">
@@ -1627,27 +1683,12 @@ const WorkoutAnalytics = () => {
                 <h1 className="text-5xl font-light">Workout</h1>
                 <h1 className="text-5xl font-semibold">Analytics</h1>
             </div>
-            <Card>
-                <h2 className="text-xl font-bold mb-2">Total Volume Lifted</h2>
-                <p className="text-4xl font-bold text-[#494358]">{analyticsData.totalVolume.toLocaleString(undefined, {maximumFractionDigits: 0})} kg</p>
-                <p className="text-gray-500">Total weight lifted across all workouts.</p>
-            </Card>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <Card>
-                    <SimplePieChart data={analyticsData.muscleFrequencyData} title="Muscle Group Frequency" />
-                </Card>
-                {analyticsData.weightProgress && Object.keys(analyticsData.weightProgress).length > 0 &&
-                    <Card>
-                        <SimpleLineChart 
-                            data={analyticsData.weightProgress[Object.keys(analyticsData.weightProgress)[0]]} 
-                            title={`Weight Progress: ${Object.keys(analyticsData.weightProgress)[0]}`} 
-                        />
-                    </Card>
-                }
-            </div>
+            {renderCalendar()}
+            {renderProgressChart()}
         </div>
     );
 };
+
 
 const ProfilePage = ({ onNavigate }) => {
     const [profile, setProfile] = useState(null);
