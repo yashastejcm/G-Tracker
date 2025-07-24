@@ -83,16 +83,16 @@ const EXERCISE_LIST = [
 
 const FOOD_LIST = [
     // Indian Foods
-    "Rice", "Roti", "Chapati", "Phulka", "Paratha", "Aloo Paratha", "Paneer Paratha", "Dosa", "Masala Dosa", "Idli", "Upma", "Rava Upma", "Poha", "Sabudana Khichdi", "Thepla", "Bhakri", "Puri", "Pongal", "Moong Dal", "Toor Dal", "Arhar Dal", "Masoor Dal", "Chana Dal", "Rajma", "Kidney Beans", "Chole", "Chickpeas", "Kala Chana", "Green Gram", "Aloo Bhaji", "Bhindi Fry", "Baingan Bharta", "Cabbage Stir Fry", "Matar Paneer", "Palak Paneer", "Lauki Sabzi", "Tinda", "Mix Veg", "Karela Fry", "Drumstick Curry", "Bread", "Omelette", "Boiled Eggs", "Maggi", "Pakora", "Vada", "Pav Bhaji", "Misal Pav", "Bhel Puri", "Samosa", "Curd", "Dahi", "Buttermilk", "Chaas", "Paneer", "Ghee", "Milk", "Chicken Curry", "Egg Curry", "Mutton Curry", "Fish Fry", "Tandoori Chicken", "Chicken Biryani", "Egg Biryani", "Masala Chai", "Black Tea", "Coffee", "Filter Coffee", "Nimbu Pani", "Lassi", "Pickle", "Achar", "Chutney", "Raita", "Papad",
+    { name: "Rice", calories: 205 }, { name: "Roti", calories: 85 }, { name: "Chapati", calories: 85 }, { name: "Phulka", calories: 70 }, { name: "Paratha", calories: 250 }, { name: "Aloo Paratha", calories: 300 }, { name: "Paneer Paratha", calories: 350 }, { name: "Dosa", calories: 133 }, { name: "Masala Dosa", calories: 387 }, { name: "Idli", calories: 39 }, { name: "Upma", calories: 250 }, { name: "Rava Upma", calories: 250 }, { name: "Poha", calories: 270 }, { name: "Sabudana Khichdi", calories: 500 }, { name: "Thepla", calories: 150 }, { name: "Bhakri", calories: 120 }, { name: "Puri", calories: 101 }, { name: "Pongal", calories: 335 }, { name: "Moong Dal", calories: 147 }, { name: "Toor Dal", calories: 200 }, { name: "Arhar Dal", calories: 200 }, { name: "Masoor Dal", calories: 230 }, { name: "Chana Dal", calories: 250 }, { name: "Rajma", calories: 330 }, { name: "Kidney Beans", calories: 330 }, { name: "Chole", calories: 250 }, { name: "Chickpeas", calories: 250 }, { name: "Kala Chana", calories: 180 }, { name: "Green Gram", calories: 150 }, { name: "Aloo Bhaji", calories: 200 }, { name: "Bhindi Fry", calories: 150 }, { name: "Baingan Bharta", calories: 100 }, { name: "Cabbage Stir Fry", calories: 100 }, { name: "Matar Paneer", calories: 300 }, { name: "Palak Paneer", calories: 250 }, { name: "Lauki Sabzi", calories: 80 }, { name: "Tinda", calories: 70 }, { name: "Mix Veg", calories: 150 }, { name: "Karela Fry", calories: 120 }, { name: "Drumstick Curry", calories: 180 }, { name: "Bread", calories: 75 }, { name: "Omelette", calories: 154 }, { name: "Boiled Eggs", calories: 78 }, { name: "Maggi", calories: 380 }, { name: "Pakora", calories: 75 }, { name: "Vada", calories: 250 }, { name: "Pav Bhaji", calories: 400 }, { name: "Misal Pav", calories: 450 }, { name: "Bhel Puri", calories: 350 }, { name: "Samosa", calories: 262 }, { name: "Curd", calories: 98 }, { name: "Dahi", calories: 98 }, { name: "Buttermilk", calories: 40 }, { name: "Chaas", calories: 40 }, { name: "Paneer", calories: 265 }, { name: "Ghee", calories: 112 }, { name: "Milk", calories: 150 }, { name: "Chicken Curry", calories: 300 }, { name: "Egg Curry", calories: 250 }, { name: "Mutton Curry", calories: 400 }, { name: "Fish Fry", calories: 250 }, { name: "Tandoori Chicken", calories: 273 }, { name: "Chicken Biryani", calories: 450 }, { name: "Egg Biryani", calories: 380 }, { name: "Masala Chai", calories: 80 }, { name: "Black Tea", calories: 2 }, { name: "Coffee", calories: 5 }, { name: "Filter Coffee", calories: 90 }, { name: "Nimbu Pani", calories: 29 }, { name: "Lassi", calories: 250 }, { name: "Pickle", calories: 20 }, { name: "Achar", calories: 20 }, { name: "Chutney", calories: 30 }, { name: "Raita", calories: 60 }, { name: "Papad", calories: 52 },
     // Western Foods
-    "Cornflakes", "Cereal", "Oats", "Peanut Butter Toast", "Bread Omelette", "Smoothies", "Pancakes", "Granola Bars", "Muesli", "Sandwich", "Pasta", "Noodles", "Burger", "Wrap", "Roll", "Pizza", "French Fries", "Garlic Bread", "Eggs", "Chicken Breast", "Grilled Fish", "Tofu", "Soy Chunks", "Cheese", "Greek Yogurt", "Black Coffee", "Protein Shake", "Green Tea", "Fruit Juice", "Cold Coffee", "Diet Soda", "Lemon Water",
+    { name: "Cornflakes", calories: 100 }, { name: "Cereal", calories: 150 }, { name: "Oats", calories: 150 }, { name: "Peanut Butter Toast", calories: 350 }, { name: "Bread Omelette", calories: 300 }, { name: "Smoothies", calories: 250 }, { name: "Pancakes", calories: 150 }, { name: "Granola Bars", calories: 200 }, { name: "Muesli", calories: 200 }, { name: "Sandwich", calories: 350 }, { name: "Pasta", calories: 400 }, { name: "Noodles", calories: 380 }, { name: "Burger", calories: 450 }, { name: "Wrap", calories: 400 }, { name: "Roll", calories: 350 }, { name: "Pizza", calories: 285 }, { name: "French Fries", calories: 312 }, { name: "Garlic Bread", calories: 150 }, { name: "Eggs", calories: 78 }, { name: "Chicken Breast", calories: 165 }, { name: "Grilled Fish", calories: 200 }, { name: "Tofu", calories: 76 }, { name: "Soy Chunks", calories: 102 }, { name: "Cheese", calories: 113 }, { name: "Greek Yogurt", calories: 59 }, { name: "Black Coffee", calories: 2 }, { name: "Protein Shake", calories: 130 }, { name: "Green Tea", calories: 2 }, { name: "Fruit Juice", calories: 120 }, { name: "Cold Coffee", calories: 200 }, { name: "Diet Soda", calories: 1 }, { name: "Lemon Water", calories: 5 },
     // Fruits
-    "Banana", "Apple", "Mango", "Papaya", "Watermelon", "Orange", "Guava", "Pomegranate", "Grapes",
+    { name: "Banana", calories: 105 }, { name: "Apple", calories: 95 }, { name: "Mango", calories: 202 }, { name: "Papaya", calories: 119 }, { name: "Watermelon", calories: 86 }, { name: "Orange", calories: 62 }, { name: "Guava", calories: 38 }, { name: "Pomegranate", calories: 234 }, { name: "Grapes", calories: 104 },
     // Dry Fruits & Nuts
-    "Almonds", "Cashews", "Walnuts", "Dates", "Raisins",
+    { name: "Almonds", calories: 7 }, { name: "Cashews", calories: 9 }, { name: "Walnuts", calories: 26 }, { name: "Dates", calories: 23 }, { name: "Raisins", calories: 15 },
     // Shakes
-    "Milkshake", "Banana Milkshake", "Mango Milkshake", "Strawberry Milkshake", "Chocolate Milkshake", "Vanilla Milkshake", "Oreo Milkshake", "Whey Protein Shake", "Plant-Based Protein Shake"
-].sort();
+    { name: "Milkshake", calories: 300 }, { name: "Banana Milkshake", calories: 350 }, { name: "Mango Milkshake", calories: 380 }, { name: "Strawberry Milkshake", calories: 320 }, { name: "Chocolate Milkshake", calories: 400 }, { name: "Vanilla Milkshake", calories: 300 }, { name: "Oreo Milkshake", calories: 450 }, { name: "Whey Protein Shake", calories: 130 }, { name: "Plant-Based Protein Shake", calories: 120 }
+].sort((a, b) => a.name.localeCompare(b.name));
 
 
 // --- Workout Plan Generation Logic ---
@@ -1907,6 +1907,7 @@ const CalorieCounter = () => {
     const [newFood, setNewFood] = useState({ name: '', calories: '' });
     const [suggestions, setSuggestions] = useState([]);
     const [allFoods, setAllFoods] = useState(FOOD_LIST);
+    const [customFoods, setCustomFoods] = useState([]);
     const today = new Date().toISOString().split('T')[0];
     const suggestionBoxRef = useRef(null);
 
@@ -1915,8 +1916,18 @@ const CalorieCounter = () => {
         const todayLog = allLogs[today] || { goal: 2000, foods: [] };
         setDailyLog(todayLog);
 
-        const customFoods = getFromStorage(LOCAL_STORAGE_KEYS.CUSTOM_FOOD_LIST) || [];
-        const combined = [...new Set([...FOOD_LIST, ...customFoods])].sort();
+        let savedCustomFoods = getFromStorage(LOCAL_STORAGE_KEYS.CUSTOM_FOOD_LIST) || [];
+        const twentyDaysAgo = new Date();
+        twentyDaysAgo.setDate(twentyDaysAgo.getDate() - 20);
+
+        const recentCustomFoods = savedCustomFoods.filter(food => new Date(food.lastUsed) > twentyDaysAgo);
+
+        if (recentCustomFoods.length !== savedCustomFoods.length) {
+            saveToStorage(LOCAL_STORAGE_KEYS.CUSTOM_FOOD_LIST, recentCustomFoods);
+        }
+
+        setCustomFoods(recentCustomFoods);
+        const combined = [...new Set([...FOOD_LIST.map(f => f.name), ...recentCustomFoods.map(f => f.name)])].sort();
         setAllFoods(combined);
     }, [today]);
 
@@ -1959,7 +1970,11 @@ const CalorieCounter = () => {
     };
     
     const handleSuggestionClick = (suggestion) => {
-        setNewFood({...newFood, name: suggestion});
+        const foodData = FOOD_LIST.find(f => f.name === suggestion);
+        setNewFood({
+            name: suggestion,
+            calories: foodData ? String(foodData.calories) : ''
+        });
         setSuggestions([]);
     };
 
@@ -1973,12 +1988,23 @@ const CalorieCounter = () => {
             setDailyLog(newLog);
             saveLog(newLog);
 
-            // Save custom food
-            const customFoods = getFromStorage(LOCAL_STORAGE_KEYS.CUSTOM_FOOD_LIST) || [];
-            if (!allFoods.find(f => f.toLowerCase() === newFood.name.toLowerCase())) {
-                const updatedCustomFoods = [...customFoods, newFood.name];
+            // Save or update custom food
+            const foodNameLower = newFood.name.toLowerCase();
+            const isPredefined = FOOD_LIST.some(f => f.name.toLowerCase() === foodNameLower);
+            
+            if (!isPredefined) {
+                let updatedCustomFoods = [...customFoods];
+                const existingCustomFoodIndex = customFoods.findIndex(f => f.name.toLowerCase() === foodNameLower);
+
+                if (existingCustomFoodIndex > -1) {
+                    updatedCustomFoods[existingCustomFoodIndex].lastUsed = today;
+                } else {
+                    updatedCustomFoods.push({ name: newFood.name, lastUsed: today });
+                }
+                
                 saveToStorage(LOCAL_STORAGE_KEYS.CUSTOM_FOOD_LIST, updatedCustomFoods);
-                setAllFoods([...new Set([...FOOD_LIST, ...updatedCustomFoods])].sort());
+                setCustomFoods(updatedCustomFoods);
+                setAllFoods([...new Set([...FOOD_LIST.map(f => f.name), ...updatedCustomFoods.map(f => f.name)])].sort());
             }
 
             setNewFood({ name: '', calories: '' });
@@ -1992,6 +2018,14 @@ const CalorieCounter = () => {
         };
         setDailyLog(newLog);
         saveLog(newLog);
+    };
+
+    const handleDeleteCustomFood = (foodToDelete) => {
+        const updatedCustomFoods = customFoods.filter(food => food.name !== foodToDelete);
+        saveToStorage(LOCAL_STORAGE_KEYS.CUSTOM_FOOD_LIST, updatedCustomFoods);
+        setCustomFoods(updatedCustomFoods);
+        setAllFoods([...new Set([...FOOD_LIST.map(f => f.name), ...updatedCustomFoods.map(f => f.name)])].sort());
+        setSuggestions(prev => prev.filter(s => s !== foodToDelete));
     };
 
     const totalCalories = useMemo(() => {
@@ -2047,12 +2081,20 @@ const CalorieCounter = () => {
                         {suggestions.length > 0 && (
                             <ul className="absolute z-10 w-full bg-white border rounded-md mt-1 max-h-40 overflow-y-auto">
                                 {suggestions.map((suggestion, index) => (
-                                    <li 
-                                        key={index}
-                                        onClick={() => handleSuggestionClick(suggestion)}
-                                        className="p-2 hover:bg-gray-100 cursor-pointer"
-                                    >
-                                        {suggestion}
+                                    <li key={index} className="flex justify-between items-center p-2 hover:bg-gray-100">
+                                        <span onClick={() => handleSuggestionClick(suggestion)} className="flex-grow cursor-pointer">{suggestion}</span>
+                                        {customFoods.some(f => f.name === suggestion) && (
+                                            <button 
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleDeleteCustomFood(suggestion);
+                                                }}
+                                                className="p-1 text-red-500 hover:text-red-700"
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        )}
                                     </li>
                                 ))}
                             </ul>
