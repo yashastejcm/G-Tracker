@@ -31,7 +31,7 @@ const saveToStorage = (key, data) => {
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
-// --- Predefined Exercises ---
+// --- Predefined Data ---
 const EXERCISE_LIST = [
     { "name": "Barbell Bench Press", "muscle": "Chest", "type": "Compound" },
     { "name": "Incline Dumbbell Press", "muscle": "Chest", "type": "Compound" },
@@ -79,6 +79,20 @@ const EXERCISE_LIST = [
     { "name": "Bicycle Crunch", "muscle": "Abs", "type": "Isolation" },
     { "name": "Cable Woodchopper", "muscle": "Abs", "type": "Isolation" }
 ];
+
+const FOOD_LIST = [
+    // Indian Foods
+    "Rice", "Roti", "Chapati", "Phulka", "Paratha", "Aloo Paratha", "Paneer Paratha", "Dosa", "Masala Dosa", "Idli", "Upma", "Rava Upma", "Poha", "Sabudana Khichdi", "Thepla", "Bhakri", "Puri", "Pongal", "Moong Dal", "Toor Dal", "Arhar Dal", "Masoor Dal", "Chana Dal", "Rajma", "Kidney Beans", "Chole", "Chickpeas", "Kala Chana", "Green Gram", "Aloo Bhaji", "Bhindi Fry", "Baingan Bharta", "Cabbage Stir Fry", "Matar Paneer", "Palak Paneer", "Lauki Sabzi", "Tinda", "Mix Veg", "Karela Fry", "Drumstick Curry", "Bread", "Omelette", "Boiled Eggs", "Maggi", "Pakora", "Vada", "Pav Bhaji", "Misal Pav", "Bhel Puri", "Samosa", "Curd", "Dahi", "Buttermilk", "Chaas", "Paneer", "Ghee", "Milk", "Chicken Curry", "Egg Curry", "Mutton Curry", "Fish Fry", "Tandoori Chicken", "Chicken Biryani", "Egg Biryani", "Masala Chai", "Black Tea", "Coffee", "Filter Coffee", "Nimbu Pani", "Lassi", "Pickle", "Achar", "Chutney", "Raita", "Papad",
+    // Western Foods
+    "Cornflakes", "Cereal", "Oats", "Peanut Butter Toast", "Bread Omelette", "Smoothies", "Pancakes", "Granola Bars", "Muesli", "Sandwich", "Pasta", "Noodles", "Burger", "Wrap", "Roll", "Pizza", "French Fries", "Garlic Bread", "Eggs", "Chicken Breast", "Grilled Fish", "Tofu", "Soy Chunks", "Cheese", "Greek Yogurt", "Black Coffee", "Protein Shake", "Green Tea", "Fruit Juice", "Cold Coffee", "Diet Soda", "Lemon Water",
+    // Fruits
+    "Banana", "Apple", "Mango", "Papaya", "Watermelon", "Orange", "Guava", "Pomegranate", "Grapes",
+    // Dry Fruits & Nuts
+    "Almonds", "Cashews", "Walnuts", "Dates", "Raisins",
+    // Shakes
+    "Milkshake", "Banana Milkshake", "Mango Milkshake", "Strawberry Milkshake", "Chocolate Milkshake", "Vanilla Milkshake", "Oreo Milkshake", "Whey Protein Shake", "Plant-Based Protein Shake"
+].sort();
+
 
 // --- Workout Plan Generation Logic ---
 const getExercisesByMuscles = (muscles, excludeLegs = false) => {
@@ -1890,13 +1904,27 @@ const ProfilePage = ({ onNavigate }) => {
 const CalorieCounter = () => {
     const [dailyLog, setDailyLog] = useState({ goal: 2000, foods: [] });
     const [newFood, setNewFood] = useState({ name: '', calories: '' });
+    const [suggestions, setSuggestions] = useState([]);
     const today = new Date().toISOString().split('T')[0];
+    const suggestionBoxRef = useRef(null);
 
     useEffect(() => {
         const allLogs = getFromStorage(LOCAL_STORAGE_KEYS.CALORIE_LOGS) || {};
         const todayLog = allLogs[today] || { goal: 2000, foods: [] };
         setDailyLog(todayLog);
     }, [today]);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (suggestionBoxRef.current && !suggestionBoxRef.current.contains(event.target)) {
+                setSuggestions([]);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, []);
 
     const saveLog = (log) => {
         const allLogs = getFromStorage(LOCAL_STORAGE_KEYS.CALORIE_LOGS) || {};
@@ -1909,6 +1937,24 @@ const CalorieCounter = () => {
         const newLog = { ...dailyLog, goal: newGoal };
         setDailyLog(newLog);
         saveLog(newLog);
+    };
+
+    const handleFoodNameChange = (e) => {
+        const value = e.target.value;
+        setNewFood({...newFood, name: value});
+        if (value) {
+            const filteredSuggestions = FOOD_LIST.filter(food => 
+                food.toLowerCase().includes(value.toLowerCase())
+            ).slice(0, 5); // Limit to 5 suggestions
+            setSuggestions(filteredSuggestions);
+        } else {
+            setSuggestions([]);
+        }
+    };
+    
+    const handleSuggestionClick = (suggestion) => {
+        setNewFood({...newFood, name: suggestion});
+        setSuggestions([]);
     };
 
     const handleAddFood = (e) => {
@@ -1974,20 +2020,37 @@ const CalorieCounter = () => {
 
             <Card className="mt-6">
                 <h3 className="text-xl font-bold mb-4">Log Food</h3>
-                <form onSubmit={handleAddFood} className="flex gap-2 mb-4">
-                    <input 
-                        type="text"
-                        placeholder="Food name"
-                        value={newFood.name}
-                        onChange={e => setNewFood({...newFood, name: e.target.value})}
-                        className="w-full p-2 border rounded-md"
-                    />
-                    <NumberStepper 
-                        value={parseInt(newFood.calories) || 0}
-                        onChange={(newCals) => setNewFood({...newFood, calories: String(newCals)})}
-                        step={50}
-                    />
-                    <Button type="submit" className="px-4 py-2">+</Button>
+                <form onSubmit={handleAddFood} className="flex flex-col gap-2 mb-4">
+                    <div className="relative" ref={suggestionBoxRef}>
+                        <input 
+                            type="text"
+                            placeholder="Food name"
+                            value={newFood.name}
+                            onChange={handleFoodNameChange}
+                            className="w-full p-2 border rounded-md"
+                        />
+                        {suggestions.length > 0 && (
+                            <ul className="absolute z-10 w-full bg-white border rounded-md mt-1 max-h-40 overflow-y-auto">
+                                {suggestions.map((suggestion, index) => (
+                                    <li 
+                                        key={index}
+                                        onClick={() => handleSuggestionClick(suggestion)}
+                                        className="p-2 hover:bg-gray-100 cursor-pointer"
+                                    >
+                                        {suggestion}
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </div>
+                    <div className="flex gap-2">
+                        <NumberStepper 
+                            value={parseInt(newFood.calories) || 0}
+                            onChange={(newCals) => setNewFood({...newFood, calories: String(newCals)})}
+                            step={50}
+                        />
+                        <Button type="submit" className="flex-grow">+</Button>
+                    </div>
                 </form>
                 <div>
                     {dailyLog.foods.length === 0 ? (
