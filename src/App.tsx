@@ -291,9 +291,12 @@ const ProfileSetup = ({ onNext, profileData, setProfileData }) => {
     const isComplete = name && age && gender;
 
     return (
-        <div className="text-center p-4">
-            <h1 className="text-3xl font-bold text-gray-800 mb-2">Tell Us About Yourself</h1>
-            <p className="text-gray-600 mb-8">This helps us personalize your experience.</p>
+        <div className="p-4">
+            <div className="text-left py-4">
+                <h1 className="text-3xl font-light text-gray-800">Tell Us About</h1>
+                <h1 className="text-3xl font-semibold text-gray-800">Yourself</h1>
+            </div>
+            <p className="text-gray-600 mb-8 text-left">This helps us personalize your experience.</p>
             
             <div className="flex flex-col items-center mb-6">
                 <div className="relative w-32 h-32 rounded-full bg-gray-200 mb-4 flex items-center justify-center overflow-hidden">
@@ -346,7 +349,7 @@ const ProfileSetup = ({ onNext, profileData, setProfileData }) => {
                 </select>
             </div>
 
-            <div className="mt-8">
+            <div className="mt-8 text-center">
                 <Button onClick={onNext} disabled={!isComplete}>Next</Button>
             </div>
         </div>
@@ -493,7 +496,10 @@ const WeightSelector = ({ onNext, onBack, profileData, setProfileData }) => {
 
     return (
         <div className="p-4 flex flex-col items-center justify-center h-full">
-            <h2 className="text-2xl font-bold text-gray-800 mb-6">What is your weight?</h2>
+            <div className="text-left py-4 w-full max-w-sm px-4">
+                <h2 className="text-3xl font-light text-gray-800">What is your</h2>
+                <h2 className="text-3xl font-semibold text-gray-800">Weight?</h2>
+            </div>
             <div className="mb-8">
                 <UnitSwitch
                     options={[{ label: 'lb', value: 'lb' }, { label: 'kg', value: 'kg' }]}
@@ -551,7 +557,10 @@ const HeightSelector = ({ onNext, onBack, profileData, setProfileData }) => {
 
     return (
         <div className="p-4 flex flex-col items-center justify-center h-full">
-            <h2 className="text-2xl font-bold text-gray-800 mb-6">What is your height?</h2>
+            <div className="text-left py-4 w-full max-w-sm px-4">
+                <h2 className="text-3xl font-light text-gray-800">What is your</h2>
+                <h2 className="text-3xl font-semibold text-gray-800">Height?</h2>
+            </div>
             <div className="mb-8">
                 <UnitSwitch
                     options={[{ label: 'ft-in', value: 'ft-in' }, { label: 'cm', value: 'cm' }]}
@@ -701,8 +710,11 @@ const PlanConfiguration = ({ onFinish, onBack, profileData, setProfileData }) =>
 
     return (
         <div className="p-4">
-            <h1 className="text-3xl font-bold text-gray-800 mb-2 text-center">Configure Your Plan</h1>
-            <p className="text-gray-600 mb-8 text-center">Select your level, then choose how many days you want to work out.</p>
+            <div className="text-left py-4">
+                <h1 className="text-3xl font-light text-gray-800">Configure Your</h1>
+                <h1 className="text-3xl font-semibold text-gray-800">Plan</h1>
+            </div>
+            <p className="text-gray-600 mb-8 text-left">Select your level, then choose how many days you want to work out.</p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
                 {levels.map(level => (
@@ -1056,8 +1068,11 @@ const ScheduleCreator = ({ onScheduleCreated }) => {
 
     return (
         <div className="p-4">
-            <h1 className="text-3xl font-bold text-center mb-2">Your Weekly Plan</h1>
-            <p className="text-center text-gray-600 mb-8">Tap a day to add or edit exercises. This will reset your timeline.</p>
+            <div className="text-left py-4">
+                <h1 className="text-3xl font-light">Your Weekly</h1>
+                <h1 className="text-3xl font-semibold">Plan</h1>
+            </div>
+            <p className="text-left text-gray-600 mb-8">Tap a day to add or edit exercises. This will reset your timeline.</p>
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {days.map(day => (
                     <Card key={day} className="cursor-pointer" onClick={() => setEditingDay(day)}>
@@ -1157,7 +1172,10 @@ const HomeScreen = ({ onNavigate }) => {
 
     return (
         <div className="p-4 max-w-md mx-auto">
-            <h1 className="text-3xl font-bold mb-8 text-center">Workout Timeline</h1>
+            <div className="text-left py-4">
+                <h1 className="text-3xl font-light">Workout</h1>
+                <h1 className="text-3xl font-semibold">Timeline</h1>
+            </div>
             <div className="space-y-4">
                 {timelineDays.map((day, index) => {
                     const cardRef = el => itemRefs.current[index] = el;
@@ -1351,8 +1369,11 @@ const DayDetail = ({ logId, onBack, onNavigate }) => {
     return (
         <div className="p-4">
             <button onClick={onBack} className="flex items-center text-indigo-600 mb-4"><ArrowLeft size={18} className="mr-2"/> Back to Timeline</button>
-            <h1 className="text-3xl font-bold mb-2">Day {log.day} Workout</h1>
-            <p className="text-gray-500 mb-6">{new Date(log.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+            <div className="text-left py-4">
+                <h1 className="text-3xl font-light">Day {log.day}</h1>
+                <h1 className="text-3xl font-semibold">Workout</h1>
+            </div>
+            <p className="text-gray-500 mb-6 text-left">{new Date(log.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
 
             <div className="space-y-4">
                 {log.exercises.map((ex, exerciseIndex) => (
@@ -1453,7 +1474,10 @@ const ProgressGraph = ({ exerciseName, onBack }) => {
     return (
         <div className="p-4">
             <button onClick={onBack} className="flex items-center text-indigo-600 mb-4"><ArrowLeft size={18} className="mr-2"/> Back</button>
-            <h2 className="text-2xl font-bold mb-4">Progress for {exerciseName}</h2>
+            <div className="text-left py-4">
+                <h2 className="text-3xl font-light">Progress for</h2>
+                <h2 className="text-3xl font-semibold">{exerciseName}</h2>
+            </div>
              {data.length === 0 ? (
                 <p className="text-center text-gray-500">No progress logged for this exercise yet.</p>
              ) : (
@@ -1517,7 +1541,10 @@ const MediaManager = ({ exerciseName, onBack }) => {
     return (
         <div className="p-4 max-w-lg mx-auto">
             <button onClick={onBack} className="flex items-center text-indigo-600 mb-4"><ArrowLeft size={18} className="mr-2"/> Back</button>
-            <h2 className="text-2xl font-bold mb-4">Media for {exerciseName}</h2>
+            <div className="text-left py-4">
+                <h2 className="text-3xl font-light">Media for</h2>
+                <h2 className="text-3xl font-semibold">{exerciseName}</h2>
+            </div>
             <Card>
                 <div className="mb-4">
                     <label className="block text-lg font-medium text-gray-700 mb-2">Attach Image/Video</label>
@@ -1592,7 +1619,10 @@ const WorkoutAnalytics = () => {
 
     return (
         <div className="p-4 space-y-6">
-            <h1 className="text-3xl font-bold">Workout Analytics</h1>
+            <div className="text-left py-4">
+                <h1 className="text-3xl font-light">Workout</h1>
+                <h1 className="text-3xl font-semibold">Analytics</h1>
+            </div>
             <Card>
                 <h2 className="text-xl font-bold mb-2">Total Volume Lifted</h2>
                 <p className="text-4xl font-bold text-[#494358]">{analyticsData.totalVolume.toLocaleString(undefined, {maximumFractionDigits: 0})} kg</p>
@@ -1693,7 +1723,12 @@ export default function App() {
     const showNav = !loading && appState !== 'loading' && appState !== 'onboarding';
 
     return (
-        <div className="bg-gray-50 min-h-screen font-sans">
+        <div className="bg-gray-50 min-h-screen font-['Poppins']">
+            <style>
+                {`
+                    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
+                `}
+            </style>
             <main className={`pb-28 transition-all duration-300 ${!showNav ? 'pt-0' : 'pt-4'}`}>
                 {renderContent()}
             </main>
