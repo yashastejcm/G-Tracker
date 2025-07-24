@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { ArrowLeft, Dumbbell, Calendar, Target, TrendingUp, Image as ImageIcon, CheckCircle, XCircle, Clock, Plus, Trash2, Edit, Save, BarChart2, Search, Undo, Lock } from 'lucide-react';
+import { ArrowLeft, Dumbbell, Calendar, Target, TrendingUp, Image as ImageIcon, CheckCircle, XCircle, Clock, Plus, Trash2, Edit, Save, BarChart2, Search, Undo, Lock, LayoutGrid, User } from 'lucide-react';
 
 // --- Local Storage Helper Functions ---
 const LOCAL_STORAGE_KEYS = {
@@ -81,30 +81,26 @@ const EXERCISE_LIST = [
 
 // --- Helper Components ---
 const Stepper = ({ currentStep, totalSteps }) => (
-    <div className="w-full px-4 sm:px-8 mb-6">
-        <div className="flex items-center">
+    <div className="w-full px-8 mb-8">
+        <div className="flex items-center gap-2">
             {Array.from({ length: totalSteps }, (_, i) => (
-                <React.Fragment key={i}>
-                    <div className={`flex items-center justify-center w-8 h-8 rounded-full ${i <= currentStep ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-600'}`}>
-                        {i < currentStep ? <CheckCircle size={16} /> : i + 1}
-                    </div>
-                    {i < totalSteps - 1 && <div className={`flex-auto border-t-2 transition-all duration-500 ${i < currentStep ? 'border-indigo-600' : 'border-gray-200'}`}></div>}
-                </React.Fragment>
+                <div key={i} className={`h-1 rounded-full flex-1 ${i < currentStep ? 'bg-gray-800 dark:bg-white' : 'bg-gray-300 dark:bg-gray-700'}`}></div>
             ))}
         </div>
     </div>
 );
 
+
 const Card = ({ children, className = '', ...props }) => (
-    <div className={`bg-white dark:bg-gray-800 shadow-lg rounded-xl p-6 ${className}`} {...props}>
+    <div className={`bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 ${className}`} {...props}>
         {children}
     </div>
 );
 
 const Button = ({ children, onClick, variant = 'primary', className = '', disabled = false }) => {
-    const baseClasses = 'px-6 py-3 font-semibold rounded-lg shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 transition-transform transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed';
+    const baseClasses = 'px-6 py-3 font-semibold rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 transition-transform transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed';
     const variants = {
-        primary: 'bg-indigo-600 text-white hover:bg-indigo-700 focus:ring-indigo-500',
+        primary: 'bg-[#494358] text-white hover:bg-[#5A556B] focus:ring-[#5A556B]',
         secondary: 'bg-gray-200 text-gray-800 hover:bg-gray-300 focus:ring-gray-400',
         danger: 'bg-red-500 text-white hover:bg-red-600 focus:ring-red-500',
     };
@@ -143,7 +139,7 @@ const SimpleLineChart = ({ data, title }) => {
                                 y1={`${y1}%`}
                                 x2={`${x2}%`}
                                 y2={`${y2}%`}
-                                stroke="#8884d8"
+                                stroke="#494358"
                                 strokeWidth="2"
                             />
                         );
@@ -157,7 +153,7 @@ const SimpleLineChart = ({ data, title }) => {
                                 cx={`${x}%`}
                                 cy={`${y}%`}
                                 r="4"
-                                fill="#8884d8"
+                                fill="#494358"
                             />
                         );
                     })}
@@ -175,7 +171,7 @@ const SimplePieChart = ({ data, title }) => {
     if (!data || data.length === 0) return <p className="text-gray-500">No data available</p>;
     
     const total = data.reduce((sum, item) => sum + item.value, 0);
-    const colors = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#AF19FF', '#FF4560', '#775DD0'];
+    const colors = ['#494358', '#5A556B', '#8d8d8d', '#FF8042', '#AF19FF', '#FF4560', '#775DD0'];
     
     return (
         <div className="w-full">
@@ -232,7 +228,7 @@ const GoalSelector = ({ onNext }) => {
                     <button
                         key={goal}
                         onClick={() => toggleGoal(goal)}
-                        className={`p-4 rounded-lg text-lg font-medium transition-all duration-200 ${selectedGoals.includes(goal) ? 'bg-indigo-600 text-white shadow-lg scale-105' : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600'}`}
+                        className={`p-4 rounded-full text-lg font-medium transition-all duration-200 ${selectedGoals.includes(goal) ? 'bg-[#494358] text-white scale-105' : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600'}`}
                     >
                         {goal}
                     </button>
@@ -243,87 +239,301 @@ const GoalSelector = ({ onNext }) => {
     );
 };
 
-const BodyMetrics = ({ onNext }) => {
-    const [height, setHeight] = useState({ feet: 5, inches: 7 });
-    const [weight, setWeight] = useState(70);
+const UnitSwitch = ({ options, selected, onSelect }) => (
+    <div className="bg-transparent rounded-full p-1 flex ring-1 ring-gray-300 dark:ring-gray-600">
+        {options.map(option => (
+            <button
+                key={option.value}
+                onClick={() => onSelect(option.value)}
+                className={`w-full py-1.5 px-6 rounded-full text-sm font-semibold transition-colors duration-300 ${selected === option.value ? 'bg-[#494358] dark:bg-[#494358] text-white' : 'text-gray-500 dark:text-gray-400'}`}
+            >
+                {option.label}
+            </button>
+        ))}
+    </div>
+);
+
+const RulerSlider = ({ min, max, value, onChange, unit }) => {
+    const scrollRef = useRef(null);
+    const isDragging = useRef(false);
+    const startX = useRef(0);
+    const scrollLeftStart = useRef(0);
+
+    const PIXELS_PER_UNIT = 20;
+    const rulerWidth = (max - min) * PIXELS_PER_UNIT;
+
+    useEffect(() => {
+        const centerValue = (value - min) * PIXELS_PER_UNIT;
+        if (scrollRef.current) {
+            scrollRef.current.scrollLeft = centerValue;
+        }
+    }, [value, min]);
+
+    const handleDragStart = (clientX) => {
+        isDragging.current = true;
+        startX.current = clientX;
+        scrollLeftStart.current = scrollRef.current.scrollLeft;
+    };
+
+    const handleDragMove = (clientX) => {
+        if (!isDragging.current) return;
+        const walk = (clientX - startX.current);
+        const newScrollLeft = scrollLeftStart.current - walk;
+        scrollRef.current.scrollLeft = newScrollLeft;
+        const newValue = Math.round(min + newScrollLeft / PIXELS_PER_UNIT);
+        if (newValue >= min && newValue <= max) {
+            onChange(newValue);
+        }
+    };
+
+    const handleDragEnd = () => {
+        if (!isDragging.current) return;
+        isDragging.current = false;
+        const currentScroll = scrollRef.current.scrollLeft;
+        const nearestValue = min + Math.round(currentScroll / PIXELS_PER_UNIT);
+        const targetScroll = (nearestValue - min) * PIXELS_PER_UNIT;
+        
+        scrollRef.current.scrollTo({
+            left: targetScroll,
+            behavior: 'smooth'
+        });
+        if (nearestValue !== value) {
+            onChange(nearestValue);
+        }
+    };
+
+    return (
+        <div className="w-full flex flex-col items-center">
+            <div
+                className="relative w-full h-24 overflow-hidden cursor-grab active:cursor-grabbing"
+                ref={scrollRef}
+                onMouseDown={(e) => handleDragStart(e.pageX)}
+                onMouseLeave={handleDragEnd}
+                onMouseUp={handleDragEnd}
+                onMouseMove={(e) => handleDragMove(e.pageX)}
+                onTouchStart={(e) => handleDragStart(e.touches[0].clientX)}
+                onTouchMove={(e) => handleDragMove(e.touches[0].clientX)}
+                onTouchEnd={handleDragEnd}
+            >
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-0 h-12 w-1 bg-black dark:bg-white rounded-full z-10 pointer-events-none"></div>
+                <div className="absolute top-1/2 -translate-y-1/2 h-12" style={{ width: `${rulerWidth}px`, paddingLeft: '50%', paddingRight: '50%' }}>
+                    <svg width="100%" height="100%" className="dark:text-gray-400 text-gray-400">
+                        {Array.from({ length: max - min + 1 }).map((_, i) => {
+                            const currentValue = min + i;
+                            const isTen = currentValue % 10 === 0;
+                            const x = i * PIXELS_PER_UNIT;
+
+                            return (
+                                <g key={currentValue}>
+                                    <line
+                                        x1={x} y1={isTen ? 12 : 18}
+                                        x2={x} y2={30}
+                                        stroke="currentColor"
+                                        strokeWidth={isTen ? "2" : "1"}
+                                    />
+                                    {isTen && (
+                                        <text x={x} y="10" textAnchor="middle" className="text-xs font-semibold fill-current">
+                                            {currentValue}
+                                        </text>
+                                    )}
+                                </g>
+                            );
+                        })}
+                    </svg>
+                </div>
+            </div>
+            <span className="text-sm font-semibold text-gray-800 dark:text-gray-200 mt-1">{unit}</span>
+        </div>
+    );
+};
+
+const OnboardingNavigation = ({ onNext, onBack }) => (
+    <div className="fixed bottom-8 left-0 right-0 px-8 flex items-center justify-between">
+        <button onClick={onBack} className="w-14 h-14 rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center">
+            <ArrowLeft size={24} className="text-gray-800 dark:text-white" />
+        </button>
+        <button onClick={onNext} className="bg-[#494358] hover:bg-[#5A556B] text-white font-semibold rounded-full px-10 py-4">
+            Next
+        </button>
+    </div>
+);
+
+const WeightSelector = ({ onNext, onBack, weightInKg, setWeightInKg }) => {
+    const [weightUnit, setWeightUnit] = useState('kg');
+
+    const handleWeightChange = useCallback((newValue) => {
+        if (weightUnit === 'kg') {
+            setWeightInKg(newValue);
+        } else {
+            setWeightInKg(newValue / 2.20462);
+        }
+    }, [weightUnit, setWeightInKg]);
+
+    const weightSliderProps = useMemo(() => (weightUnit === 'kg' 
+        ? { min: 30, max: 150, value: Math.round(weightInKg) }
+        : { min: 66, max: 330, value: Math.round(weightInKg * 2.20462) }
+    ), [weightUnit, weightInKg]);
+
+    return (
+        <div className="p-4 flex flex-col items-center justify-center h-full">
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-6">What is your weight?</h2>
+            <div className="mb-8">
+                <UnitSwitch
+                    options={[{ label: 'lb', value: 'lb' }, { label: 'kg', value: 'kg' }]}
+                    selected={weightUnit}
+                    onSelect={setWeightUnit}
+                />
+            </div>
+            <div className="w-full max-w-sm bg-[#FFF9C4] dark:bg-yellow-900/20 p-6 rounded-3xl">
+                <div className="text-center mb-4">
+                    <span className="text-8xl font-bold text-[#262642] dark:text-white">{weightSliderProps.value}</span>
+                </div>
+                <RulerSlider
+                    min={weightSliderProps.min}
+                    max={weightSliderProps.max}
+                    value={weightSliderProps.value}
+                    onChange={handleWeightChange}
+                    unit={weightUnit}
+                />
+            </div>
+            <OnboardingNavigation onNext={onNext} onBack={onBack} />
+        </div>
+    );
+};
+
+const HeightSelector = ({ onNext, onBack, heightInCm, setHeightInCm }) => {
+    const [heightUnit, setHeightUnit] = useState('cm');
+
+    const handleHeightChange = useCallback((newValue) => {
+        if (heightUnit === 'cm') {
+            setHeightInCm(newValue);
+        } else {
+            const inches = newValue;
+            setHeightInCm(inches * 2.54);
+        }
+    }, [heightUnit, setHeightInCm]);
+
+    const heightSliderProps = useMemo(() => {
+        if (heightUnit === 'cm') {
+            return { min: 120, max: 220, value: Math.round(heightInCm) };
+        } else {
+            const totalInches = heightInCm / 2.54;
+            return { min: 48, max: 86, value: Math.round(totalInches) };
+        }
+    }, [heightUnit, heightInCm]);
+    
+    const displayHeight = useMemo(() => {
+        if (heightUnit === 'cm') return `${Math.round(heightInCm)}`;
+        const totalInches = heightInCm / 2.54;
+        const feet = Math.floor(totalInches / 12);
+        const inches = Math.round(totalInches % 12);
+        return `${feet}' ${inches}"`;
+    }, [heightInCm, heightUnit]);
+
+    return (
+        <div className="p-4 flex flex-col items-center justify-center h-full">
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-6">What is your height?</h2>
+            <div className="mb-8">
+                <UnitSwitch
+                    options={[{ label: 'ft-in', value: 'ft-in' }, { label: 'cm', value: 'cm' }]}
+                    selected={heightUnit}
+                    onSelect={setHeightUnit}
+                />
+            </div>
+            <div className="w-full max-w-sm bg-[#FFF9C4] dark:bg-yellow-900/20 p-6 rounded-3xl">
+                <div className="text-center mb-4">
+                     <span className="text-8xl font-bold text-[#262642] dark:text-white">{displayHeight}</span>
+                </div>
+                 <RulerSlider
+                    min={heightSliderProps.min}
+                    max={heightSliderProps.max}
+                    value={heightSliderProps.value}
+                    onChange={handleHeightChange}
+                    unit={heightUnit === 'cm' ? 'cm' : 'in'}
+                />
+            </div>
+            <OnboardingNavigation onNext={onNext} onBack={onBack} />
+        </div>
+    );
+};
+
+const BmiDisplay = ({ onFinish, onBack, weightInKg, heightInCm }) => {
     const [bmi, setBmi] = useState(null);
     const [bmiCategory, setBmiCategory] = useState('');
 
     const calculateBmi = useCallback(() => {
-        const heightInMeters = ((height.feet * 12) + height.inches) * 0.0254;
+        const heightInMeters = heightInCm / 100;
         if (heightInMeters > 0) {
-            const bmiValue = weight / (heightInMeters * heightInMeters);
+            const bmiValue = weightInKg / (heightInMeters * heightInMeters);
             setBmi(bmiValue.toFixed(1));
-            if (bmiValue < 18.5) setBmiCategory('Needs attention');
-            else if (bmiValue >= 18.5 && bmiValue <= 24.9) setBmiCategory('Healthy!');
-            else setBmiCategory('Needs attention');
+            if (bmiValue < 18.5) setBmiCategory('Underweight');
+            else if (bmiValue >= 18.5 && bmiValue <= 24.9) setBmiCategory('Healthy');
+            else if (bmiValue >= 25 && bmiValue <= 29.9) setBmiCategory('Overweight');
+            else setBmiCategory('Obese');
         }
-    }, [height, weight]);
+    }, [heightInCm, weightInKg]);
 
     useEffect(() => {
         calculateBmi();
     }, [calculateBmi]);
 
     const handleNext = () => {
+        const totalInches = heightInCm / 2.54;
+        const feet = Math.floor(totalInches / 12);
+        const inches = Math.round(totalInches % 12);
+        
         const profile = getFromStorage(LOCAL_STORAGE_KEYS.USER_PROFILE) || {};
-        profile.metrics = { height, weight, bmi: bmi || 0 };
+        profile.metrics = { 
+            height: { feet, inches }, 
+            weight: Math.round(weightInKg), 
+            bmi: bmi || 0 
+        };
         saveToStorage(LOCAL_STORAGE_KEYS.USER_PROFILE, profile);
-        onNext();
+        onFinish();
     };
 
     const getBmiColor = () => {
         if (!bmi) return 'bg-gray-400';
-        if (bmi < 18.5 || bmi > 24.9) return 'bg-red-500';
+        if (bmi < 18.5 || bmi >= 25) return 'bg-red-500';
         return 'bg-green-500';
     };
 
     return (
-        <div className="p-4 flex flex-col items-center">
-            <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-8">Your Physical Details</h1>
-            <Card className="w-full max-w-md">
-                <div className="mb-6">
-                    <label className="block text-lg font-medium text-gray-700 dark:text-gray-200 mb-2">Height</label>
-                    <div className="flex gap-4">
-                        <div className="flex-1">
-                            <label className="block text-sm text-gray-500 dark:text-gray-400">Feet</label>
-                            <input type="number" value={height.feet} onChange={e => setHeight(h => ({ ...h, feet: parseInt(e.target.value) || 0 }))} className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
-                        </div>
-                        <div className="flex-1">
-                            <label className="block text-sm text-gray-500 dark:text-gray-400">Inches</label>
-                            <input type="number" value={height.inches} onChange={e => setHeight(h => ({ ...h, inches: parseInt(e.target.value) || 0 }))} className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
-                        </div>
+        <div className="p-4 flex flex-col items-center justify-center h-full">
+            <Card className="w-full max-w-md bg-gray-100 dark:bg-gray-800/50 p-6 sm:p-8">
+                <div className="text-center">
+                    <h2 className="text-xl font-semibold text-gray-800 dark:text-white">Your BMI is</h2>
+                    <p className="text-7xl font-bold my-4 text-gray-900 dark:text-white">{bmi}</p>
+                    <p className={`font-bold text-lg ${getBmiColor().replace('bg-', 'text-')}`}>{bmiCategory}</p>
+                    <div className="w-full bg-gray-200 rounded-full h-2.5 my-4 dark:bg-gray-700">
+                        <div className={`${getBmiColor()} h-2.5 rounded-full transition-all duration-500`} style={{ width: `${Math.min(100, (bmi / 40) * 100)}%` }}></div>
                     </div>
                 </div>
-                <div className="mb-8">
-                    <label className="block text-lg font-medium text-gray-700 dark:text-gray-200 mb-2">Weight: {weight} kg</label>
-                    <input type="range" min="30" max="200" value={weight} onChange={e => setWeight(parseInt(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700" />
-                </div>
-                {bmi && (
-                    <div className="text-center">
-                        <h2 className="text-xl font-semibold text-gray-800 dark:text-white">Your BMI: {bmi}</h2>
-                        <div className="w-full bg-gray-200 rounded-full h-4 my-2 dark:bg-gray-700">
-                            <div className={`${getBmiColor()} h-4 rounded-full`} style={{ width: `${Math.min(100, (bmi / 40) * 100)}%` }}></div>
-                        </div>
-                        <p className={`font-bold ${getBmiColor().replace('bg-', 'text-')}`}>{bmiCategory}</p>
-                    </div>
-                )}
             </Card>
-            <Button onClick={handleNext} className="mt-8">Next</Button>
+            <OnboardingNavigation onNext={handleNext} onBack={onBack} />
         </div>
     );
 };
 
+
 const Onboarding = ({ onFinish }) => {
     const [step, setStep] = useState(0);
+    const [weightInKg, setWeightInKg] = useState(70);
+    const [heightInCm, setHeightInCm] = useState(170);
+
     const steps = [
         <GoalSelector onNext={() => setStep(1)} />,
-        <BodyMetrics onNext={onFinish} />,
+        <WeightSelector onNext={() => setStep(2)} onBack={() => setStep(0)} weightInKg={weightInKg} setWeightInKg={setWeightInKg} />,
+        <HeightSelector onNext={() => setStep(3)} onBack={() => setStep(1)} heightInCm={heightInCm} setHeightInCm={setHeightInCm} />,
+        <BmiDisplay onFinish={onFinish} onBack={() => setStep(2)} weightInKg={weightInKg} heightInCm={heightInCm} />,
     ];
 
     return (
-        <div className="w-full max-w-4xl mx-auto mt-8">
+        <div className="w-full max-w-4xl mx-auto mt-8 flex flex-col h-screen">
             <Stepper currentStep={step} totalSteps={steps.length} />
-            {steps[step]}
+            <div className="flex-grow">
+                {steps[step]}
+            </div>
         </div>
     );
 };
@@ -379,7 +589,7 @@ const AddExerciseModal = ({ isOpen, onClose, onAddExercises, goals }) => {
 
     return (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 w-full max-w-2xl max-h-[90vh] flex flex-col">
                 <div className="p-4 border-b dark:border-gray-700">
                     <h2 className="text-2xl font-bold dark:text-white">Add Exercises</h2>
                 </div>
@@ -544,13 +754,13 @@ const ScheduleCreator = ({ onScheduleCreated }) => {
                         </div>
                         <div className="mb-4 h-px bg-gray-200 dark:bg-gray-700"></div>
                         {workoutPlan[editingDay].exercises.length === 0 ? (
-                             <p className="text-center text-gray-500 dark:text-gray-400">No exercises added yet.</p>
+                            <p className="text-center text-gray-500 dark:text-gray-400">No exercises added yet.</p>
                         ) : (
                             <div className="mb-4 space-y-2">
                                 {workoutPlan[editingDay].exercises.map((ex, index) => (
                                     <div key={index} className="flex justify-between items-center p-2 bg-gray-100 dark:bg-gray-700 rounded-md">
                                         <span className="dark:text-gray-200">{ex.name}</span>
-                                        <button onClick={() => removeExercise(editingDay, index)} className="text-red-500 hover:text-red-700">
+                                        <button onClick={() => removeExercise(editingDay, index)} className="text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50">
                                             <Trash2 size={18} />
                                         </button>
                                     </div>
@@ -561,7 +771,7 @@ const ScheduleCreator = ({ onScheduleCreated }) => {
                             <Button onClick={() => setIsModalOpen(true)} variant="secondary" className="w-full">
                                 <Plus size={18} className="inline-block mr-2"/> Add Exercise
                             </Button>
-                            <Button onClick={() => setEditingDay(null)} className="w-full bg-green-500 hover:bg-green-600 focus:ring-green-500">
+                            <Button onClick={() => setEditingDay(null)} variant="primary" className="w-full">
                                 Confirm
                             </Button>
                         </div>
@@ -583,9 +793,9 @@ const ScheduleCreator = ({ onScheduleCreated }) => {
             <p className="text-center text-gray-600 dark:text-gray-400 mb-8">Tap a day to add or edit exercises. This will reset your timeline.</p>
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {days.map(day => (
-                    <Card key={day} className="cursor-pointer hover:shadow-xl transition-shadow" onClick={() => setEditingDay(day)}>
+                    <Card key={day} className="cursor-pointer" onClick={() => setEditingDay(day)}>
                         <h3 className="font-bold text-xl mb-2 dark:text-white">{day}</h3>
-                        <p className="text-indigo-500 font-semibold truncate mb-2">{workoutPlan[day].name || '...'}</p>
+                        <p className="text-[#494358] font-semibold truncate mb-2">{workoutPlan[day].name || '...'}</p>
                         {workoutPlan[day].exercises && workoutPlan[day].exercises.length > 0 ? (
                             <ul className="list-disc list-inside text-gray-600 dark:text-gray-300">
                                 {workoutPlan[day].exercises.slice(0,2).map((ex, i) => <li key={i}>{ex.name}</li>)}
@@ -594,7 +804,7 @@ const ScheduleCreator = ({ onScheduleCreated }) => {
                         ) : (
                             <p className="text-gray-500 dark:text-gray-400">Rest Day</p>
                         )}
-                        <div className="text-indigo-500 font-semibold mt-4 flex items-center">Edit Day <Edit size={16} className="ml-2" /></div>
+                        <div className="text-[#494358] font-semibold mt-4 flex items-center">Edit Day <Edit size={16} className="ml-2" /></div>
                     </Card>
                 ))}
             </div>
@@ -687,14 +897,14 @@ const HomeScreen = ({ onNavigate }) => {
 
                     if (day.status === 'current') {
                         return (
-                            <div ref={cardRef} key={day.dayKey} className="bg-indigo-600 text-white rounded-xl shadow-lg p-4 flex justify-between items-center">
+                            <div ref={cardRef} key={day.dayKey} className="bg-[#494358] text-white rounded-xl p-4 flex justify-between items-center">
                                 <div>
                                     <h2 className="font-bold text-2xl">{day.dayKey}</h2>
                                     <p className="opacity-90">{day.name}</p>
                                     <p className="text-sm opacity-70 mt-1">{new Date(day.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
                                 </div>
                                 {!day.isRestDay && (
-                                    <button onClick={() => onNavigate('dayDetail', { logId: day.logId })} className="bg-white text-indigo-600 font-bold py-2 px-5 rounded-lg shadow-md hover:bg-gray-200">
+                                    <button onClick={() => onNavigate('dayDetail', { logId: day.logId })} className="bg-white text-[#494358] font-bold py-2 px-5 rounded-full hover:bg-gray-200">
                                         Start
                                     </button>
                                 )}
@@ -704,7 +914,7 @@ const HomeScreen = ({ onNavigate }) => {
                     
                     const isClickable = day.status === 'completed' && day.logId;
                     return (
-                        <div ref={cardRef} key={day.dayKey} onClick={() => isClickable && onNavigate('dayDetail', { logId: day.logId })} className={`bg-white dark:bg-gray-800 rounded-xl shadow-md p-4 flex justify-between items-center ${day.status === 'completed' ? 'opacity-50' : ''} ${isClickable ? 'cursor-pointer' : 'cursor-default'}`}>
+                        <div ref={cardRef} key={day.dayKey} onClick={() => isClickable && onNavigate('dayDetail', { logId: day.logId })} className={`bg-white dark:bg-gray-800 rounded-xl p-4 flex justify-between items-center border border-gray-200 dark:border-gray-700 ${day.status === 'completed' ? 'opacity-50' : ''} ${isClickable ? 'cursor-pointer' : 'cursor-default'}`}>
                             <div>
                                 <h2 className="font-bold text-2xl dark:text-white">{day.dayKey}</h2>
                                 <p className="text-gray-500 dark:text-gray-400">{day.name}</p>
@@ -883,15 +1093,15 @@ const DayDetail = ({ logId, onBack, onNavigate }) => {
                         <div className="flex justify-between items-start">
                              <h3 className={`text-xl font-bold mb-3 dark:text-white ${ex.skipped ? 'line-through' : ''}`}>{ex.name}</h3>
                              <div className="flex items-center space-x-2">
-                                <button onClick={() => onNavigate('progressGraph', { exerciseName: ex.name, logId: log.id })} className="text-gray-500 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400">
+                                <button onClick={() => onNavigate('progressGraph', { exerciseName: ex.name, logId: log.id })} className="text-gray-500 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">
                                     <BarChart2 size={20} />
                                 </button>
-                                <button onClick={() => onNavigate('mediaManager', { exerciseName: ex.name, logId: log.id })} className="text-gray-500 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400">
+                                <button onClick={() => onNavigate('mediaManager', { exerciseName: ex.name, logId: log.id })} className="text-gray-500 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">
                                     <ImageIcon size={20} />
                                 </button>
                              </div>
                         </div>
-                       
+                        
                         {!ex.skipped && (
                             <>
                                 <div className="grid grid-cols-12 gap-2 mb-2 px-2 text-sm font-semibold text-gray-500 dark:text-gray-400">
@@ -912,7 +1122,7 @@ const DayDetail = ({ logId, onBack, onNavigate }) => {
                                                 <input type="number" value={set.reps} onChange={e => handleSetChange(exerciseIndex, setIndex, 'reps', e.target.value)} className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
                                             </div>
                                             <div className="col-span-2 text-right">
-                                                <button onClick={() => removeSet(exerciseIndex, setIndex)} className="text-red-500 hover:text-red-700 p-2">
+                                                <button onClick={() => removeSet(exerciseIndex, setIndex)} className="text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50">
                                                     <Trash2 size={18} />
                                                 </button>
                                             </div>
@@ -928,7 +1138,7 @@ const DayDetail = ({ logId, onBack, onNavigate }) => {
                                 <Button onClick={() => addSet(exerciseIndex)} variant="secondary" className="w-full py-2">
                                     <Plus size={18} className="inline-block mr-2" /> Add Set
                                 </Button>
-                                <button onClick={() => toggleSkipExercise(exerciseIndex)} className="bg-red-500 text-white rounded-lg px-4 py-2 font-semibold shadow-md hover:bg-red-600">
+                                <button onClick={() => toggleSkipExercise(exerciseIndex)} className="bg-red-500 text-white rounded-full px-4 py-2 font-semibold hover:bg-red-600">
                                     Give Up
                                 </button>
                                 </>
@@ -1118,7 +1328,7 @@ const WorkoutAnalytics = () => {
             <h1 className="text-3xl font-bold dark:text-white">Workout Analytics</h1>
             <Card>
                 <h2 className="text-xl font-bold mb-2 dark:text-white">Total Volume Lifted</h2>
-                <p className="text-4xl font-bold text-indigo-600">{analyticsData.totalVolume.toLocaleString(undefined, {maximumFractionDigits: 0})} kg</p>
+                <p className="text-4xl font-bold text-[#494358]">{analyticsData.totalVolume.toLocaleString(undefined, {maximumFractionDigits: 0})} kg</p>
                 <p className="text-gray-500 dark:text-gray-400">Total weight lifted across all workouts.</p>
             </Card>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1190,33 +1400,45 @@ export default function App() {
                  return <MediaManager exerciseName={navParams.exerciseName} onBack={() => handleNavigation('dayDetail', { logId: navParams.logId })} />;
             case 'analytics':
                 return <WorkoutAnalytics />;
+            case 'profile':
+                 return <div className="text-center p-10 dark:text-white"><h1 className="text-2xl">Profile Page</h1></div>;
             default:
                 return <div className="text-center text-red-500">Something went wrong.</div>;
         }
     };
 
-    const NavItem = ({ screen, icon, label }) => (
-        <button onClick={() => setAppState(screen)} className={`flex flex-col items-center justify-center p-2 rounded-lg transition-colors w-full ${appState === screen ? 'text-indigo-600 bg-indigo-100 dark:bg-gray-700' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
-            {icon}
-            <span className="text-xs font-medium">{label}</span>
-        </button>
-    );
+    const NavItem = ({ screen, icon, currentScreen }) => {
+        const isActive = screen === currentScreen;
+        return (
+            <button 
+                onClick={() => setAppState(screen)} 
+                className="flex-1 flex items-center justify-center"
+            >
+                <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 ${isActive ? 'bg-white' : 'bg-transparent'}`}>
+                    {React.cloneElement(icon, {
+                        className: `transition-colors duration-300 ${isActive ? 'text-gray-900' : 'text-gray-400'}`
+                    })}
+                </div>
+            </button>
+        );
+    };
 
     const showNav = !loading && appState !== 'loading' && appState !== 'onboarding';
 
     return (
         <div className="bg-gray-50 dark:bg-gray-900 min-h-screen font-sans">
-            <main className={`pb-20 transition-all duration-300 ${!showNav ? 'pt-0' : 'pt-4'}`}>
+            <main className={`pb-28 transition-all duration-300 ${!showNav ? 'pt-0' : 'pt-4'}`}>
                 {renderContent()}
             </main>
             {showNav && (
-                <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shadow-lg">
-                    <div className="max-w-4xl mx-auto grid grid-cols-3 gap-1 sm:gap-2 p-1">
-                        <NavItem screen="home" icon={<Calendar size={24} />} label="Timeline" />
-                        <NavItem screen="schedule" icon={<Edit size={24} />} label="Plan" />
-                        <NavItem screen="analytics" icon={<TrendingUp size={24} />} label="Stats" />
+                <div className="fixed bottom-4 left-1/2 -translate-x-1/2 w-11/12 max-w-sm">
+                    <div className="bg-[#494358] dark:bg-[#494358] rounded-full p-2 flex items-center justify-around">
+                        <NavItem screen="home" icon={<LayoutGrid size={24} />} currentScreen={appState} />
+                        <NavItem screen="schedule" icon={<Calendar size={24} />} currentScreen={appState} />
+                        <NavItem screen="analytics" icon={<BarChart2 size={24} />} currentScreen={appState} />
+                        <NavItem screen="profile" icon={<User size={24} />} currentScreen={appState} />
                     </div>
-                </nav>
+                </div>
             )}
         </div>
     );
