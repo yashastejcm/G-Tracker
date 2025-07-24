@@ -8,7 +8,8 @@ const LOCAL_STORAGE_KEYS = {
   LOGS: 'workout_logs',
   EXERCISE_PROGRESS: 'exercise_progress',
   EXERCISE_MEDIA: 'exercise_media',
-  CALORIE_LOGS: 'calorie_logs'
+  CALORIE_LOGS: 'calorie_logs',
+  CUSTOM_FOOD_LIST: 'workout_custom_food_list'
 };
 
 const getFromStorage = (key) => {
@@ -1905,6 +1906,7 @@ const CalorieCounter = () => {
     const [dailyLog, setDailyLog] = useState({ goal: 2000, foods: [] });
     const [newFood, setNewFood] = useState({ name: '', calories: '' });
     const [suggestions, setSuggestions] = useState([]);
+    const [allFoods, setAllFoods] = useState(FOOD_LIST);
     const today = new Date().toISOString().split('T')[0];
     const suggestionBoxRef = useRef(null);
 
@@ -1912,6 +1914,10 @@ const CalorieCounter = () => {
         const allLogs = getFromStorage(LOCAL_STORAGE_KEYS.CALORIE_LOGS) || {};
         const todayLog = allLogs[today] || { goal: 2000, foods: [] };
         setDailyLog(todayLog);
+
+        const customFoods = getFromStorage(LOCAL_STORAGE_KEYS.CUSTOM_FOOD_LIST) || [];
+        const combined = [...new Set([...FOOD_LIST, ...customFoods])].sort();
+        setAllFoods(combined);
     }, [today]);
 
     useEffect(() => {
@@ -1943,7 +1949,7 @@ const CalorieCounter = () => {
         const value = e.target.value;
         setNewFood({...newFood, name: value});
         if (value) {
-            const filteredSuggestions = FOOD_LIST.filter(food => 
+            const filteredSuggestions = allFoods.filter(food => 
                 food.toLowerCase().includes(value.toLowerCase())
             ).slice(0, 5); // Limit to 5 suggestions
             setSuggestions(filteredSuggestions);
@@ -1966,6 +1972,15 @@ const CalorieCounter = () => {
             };
             setDailyLog(newLog);
             saveLog(newLog);
+
+            // Save custom food
+            const customFoods = getFromStorage(LOCAL_STORAGE_KEYS.CUSTOM_FOOD_LIST) || [];
+            if (!allFoods.find(f => f.toLowerCase() === newFood.name.toLowerCase())) {
+                const updatedCustomFoods = [...customFoods, newFood.name];
+                saveToStorage(LOCAL_STORAGE_KEYS.CUSTOM_FOOD_LIST, updatedCustomFoods);
+                setAllFoods([...new Set([...FOOD_LIST, ...updatedCustomFoods])].sort());
+            }
+
             setNewFood({ name: '', calories: '' });
         }
     };
