@@ -292,9 +292,9 @@ const ProfileSetup = ({ onNext, profileData, setProfileData }) => {
 
     return (
         <div className="p-4">
-            <div className="text-left py-4">
-                <h1 className="text-3xl font-light text-gray-800">Tell Us About</h1>
-                <h1 className="text-3xl font-semibold text-gray-800">Yourself</h1>
+            <div className="text-left py-8">
+                <h1 className="text-5xl font-light text-gray-800">Tell Us About</h1>
+                <h1 className="text-5xl font-semibold text-gray-800">Yourself</h1>
             </div>
             <p className="text-gray-600 mb-8 text-left">This helps us personalize your experience.</p>
             
@@ -495,29 +495,31 @@ const WeightSelector = ({ onNext, onBack, profileData, setProfileData }) => {
     ), [weightUnit, weightInKg]);
 
     return (
-        <div className="p-4 flex flex-col items-center justify-center h-full">
-            <div className="text-left py-4 w-full max-w-sm px-4">
-                <h2 className="text-3xl font-light text-gray-800">What is your</h2>
-                <h2 className="text-3xl font-semibold text-gray-800">Weight?</h2>
+        <div className="p-4 flex flex-col h-full">
+            <div className="text-left py-8 w-full max-w-sm px-4 mx-auto">
+                <h2 className="text-5xl font-light text-gray-800">What is your</h2>
+                <h2 className="text-5xl font-semibold text-gray-800">Weight?</h2>
             </div>
-            <div className="mb-8">
-                <UnitSwitch
-                    options={[{ label: 'lb', value: 'lb' }, { label: 'kg', value: 'kg' }]}
-                    selected={weightUnit}
-                    onSelect={setWeightUnit}
-                />
-            </div>
-            <div className="w-full max-w-sm bg-[#F6F3BA] p-6 rounded-3xl">
-                <div className="text-center mb-4">
-                    <span className="text-8xl font-bold text-[#262642]">{weightSliderProps.value}</span>
+            <div className="flex-grow flex flex-col items-center justify-center">
+                <div className="mb-8">
+                    <UnitSwitch
+                        options={[{ label: 'lb', value: 'lb' }, { label: 'kg', value: 'kg' }]}
+                        selected={weightUnit}
+                        onSelect={setWeightUnit}
+                    />
                 </div>
-                <RulerSlider
-                    min={weightSliderProps.min}
-                    max={weightSliderProps.max}
-                    value={weightSliderProps.value}
-                    onChange={handleWeightChange}
-                    unit={weightUnit}
-                />
+                <div className="w-full max-w-sm bg-[#F6F3BA] p-6 rounded-3xl">
+                    <div className="text-center mb-4">
+                        <span className="text-8xl font-bold text-[#262642]">{weightSliderProps.value}</span>
+                    </div>
+                    <RulerSlider
+                        min={weightSliderProps.min}
+                        max={weightSliderProps.max}
+                        value={weightSliderProps.value}
+                        onChange={handleWeightChange}
+                        unit={weightUnit}
+                    />
+                </div>
             </div>
             <OnboardingNavigation onNext={onNext} onBack={onBack} />
         </div>
@@ -556,29 +558,31 @@ const HeightSelector = ({ onNext, onBack, profileData, setProfileData }) => {
     }, [heightInCm, heightUnit]);
 
     return (
-        <div className="p-4 flex flex-col items-center justify-center h-full">
-            <div className="text-left py-4 w-full max-w-sm px-4">
-                <h2 className="text-3xl font-light text-gray-800">What is your</h2>
-                <h2 className="text-3xl font-semibold text-gray-800">Height?</h2>
+        <div className="p-4 flex flex-col h-full">
+            <div className="text-left py-8 w-full max-w-sm px-4 mx-auto">
+                <h2 className="text-5xl font-light text-gray-800">What is your</h2>
+                <h2 className="text-5xl font-semibold text-gray-800">Height?</h2>
             </div>
-            <div className="mb-8">
-                <UnitSwitch
-                    options={[{ label: 'ft-in', value: 'ft-in' }, { label: 'cm', value: 'cm' }]}
-                    selected={heightUnit}
-                    onSelect={setHeightUnit}
-                />
-            </div>
-            <div className="w-full max-w-sm bg-[#D6EBEB] p-6 rounded-3xl">
-                <div className="text-center mb-4">
-                     <span className="text-8xl font-bold text-[#262642]">{displayHeight}</span>
+            <div className="flex-grow flex flex-col items-center justify-center">
+                <div className="mb-8">
+                    <UnitSwitch
+                        options={[{ label: 'ft-in', value: 'ft-in' }, { label: 'cm', value: 'cm' }]}
+                        selected={heightUnit}
+                        onSelect={setHeightUnit}
+                    />
                 </div>
-                 <RulerSlider
-                    min={heightSliderProps.min}
-                    max={heightSliderProps.max}
-                    value={heightSliderProps.value}
-                    onChange={handleHeightChange}
-                    unit={heightUnit === 'cm' ? 'cm' : 'in'}
-                />
+                <div className="w-full max-w-sm bg-[#D6EBEB] p-6 rounded-3xl">
+                    <div className="text-center mb-4">
+                         <span className="text-8xl font-bold text-[#262642]">{displayHeight}</span>
+                    </div>
+                     <RulerSlider
+                        min={heightSliderProps.min}
+                        max={heightSliderProps.max}
+                        value={heightSliderProps.value}
+                        onChange={handleHeightChange}
+                        unit={heightUnit === 'cm' ? 'cm' : 'in'}
+                    />
+                </div>
             </div>
             <OnboardingNavigation onNext={onNext} onBack={onBack} />
         </div>
@@ -710,9 +714,9 @@ const PlanConfiguration = ({ onFinish, onBack, profileData, setProfileData }) =>
 
     return (
         <div className="p-4">
-            <div className="text-left py-4">
-                <h1 className="text-3xl font-light text-gray-800">Configure Your</h1>
-                <h1 className="text-3xl font-semibold text-gray-800">Plan</h1>
+            <div className="text-left py-8">
+                <h1 className="text-5xl font-light text-gray-800">Configure Your</h1>
+                <h1 className="text-5xl font-semibold text-gray-800">Plan</h1>
             </div>
             <p className="text-gray-600 mb-8 text-left">Select your level, then choose how many days you want to work out.</p>
 
@@ -1068,9 +1072,9 @@ const ScheduleCreator = ({ onScheduleCreated }) => {
 
     return (
         <div className="p-4">
-            <div className="text-left py-4">
-                <h1 className="text-3xl font-light">Your Weekly</h1>
-                <h1 className="text-3xl font-semibold">Plan</h1>
+            <div className="text-left py-8">
+                <h1 className="text-5xl font-light">Your Weekly</h1>
+                <h1 className="text-5xl font-semibold">Plan</h1>
             </div>
             <p className="text-left text-gray-600 mb-8">Tap a day to add or edit exercises. This will reset your timeline.</p>
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -1172,9 +1176,9 @@ const HomeScreen = ({ onNavigate }) => {
 
     return (
         <div className="p-4 max-w-md mx-auto">
-            <div className="text-left py-4">
-                <h1 className="text-3xl font-light">Workout</h1>
-                <h1 className="text-3xl font-semibold">Timeline</h1>
+            <div className="text-left py-8">
+                <h1 className="text-5xl font-light">Workout</h1>
+                <h1 className="text-5xl font-semibold">Timeline</h1>
             </div>
             <div className="space-y-4">
                 {timelineDays.map((day, index) => {
@@ -1369,9 +1373,9 @@ const DayDetail = ({ logId, onBack, onNavigate }) => {
     return (
         <div className="p-4">
             <button onClick={onBack} className="flex items-center text-indigo-600 mb-4"><ArrowLeft size={18} className="mr-2"/> Back to Timeline</button>
-            <div className="text-left py-4">
-                <h1 className="text-3xl font-light">Day {log.day}</h1>
-                <h1 className="text-3xl font-semibold">Workout</h1>
+            <div className="text-left py-8">
+                <h1 className="text-5xl font-light">Day {log.day}</h1>
+                <h1 className="text-5xl font-semibold">Workout</h1>
             </div>
             <p className="text-gray-500 mb-6 text-left">{new Date(log.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
 
@@ -1474,9 +1478,9 @@ const ProgressGraph = ({ exerciseName, onBack }) => {
     return (
         <div className="p-4">
             <button onClick={onBack} className="flex items-center text-indigo-600 mb-4"><ArrowLeft size={18} className="mr-2"/> Back</button>
-            <div className="text-left py-4">
-                <h2 className="text-3xl font-light">Progress for</h2>
-                <h2 className="text-3xl font-semibold">{exerciseName}</h2>
+            <div className="text-left py-8">
+                <h2 className="text-5xl font-light">Progress for</h2>
+                <h2 className="text-5xl font-semibold">{exerciseName}</h2>
             </div>
              {data.length === 0 ? (
                 <p className="text-center text-gray-500">No progress logged for this exercise yet.</p>
@@ -1541,9 +1545,9 @@ const MediaManager = ({ exerciseName, onBack }) => {
     return (
         <div className="p-4 max-w-lg mx-auto">
             <button onClick={onBack} className="flex items-center text-indigo-600 mb-4"><ArrowLeft size={18} className="mr-2"/> Back</button>
-            <div className="text-left py-4">
-                <h2 className="text-3xl font-light">Media for</h2>
-                <h2 className="text-3xl font-semibold">{exerciseName}</h2>
+            <div className="text-left py-8">
+                <h2 className="text-5xl font-light">Media for</h2>
+                <h2 className="text-5xl font-semibold">{exerciseName}</h2>
             </div>
             <Card>
                 <div className="mb-4">
@@ -1619,9 +1623,9 @@ const WorkoutAnalytics = () => {
 
     return (
         <div className="p-4 space-y-6">
-            <div className="text-left py-4">
-                <h1 className="text-3xl font-light">Workout</h1>
-                <h1 className="text-3xl font-semibold">Analytics</h1>
+            <div className="text-left py-8">
+                <h1 className="text-5xl font-light">Workout</h1>
+                <h1 className="text-5xl font-semibold">Analytics</h1>
             </div>
             <Card>
                 <h2 className="text-xl font-bold mb-2">Total Volume Lifted</h2>
