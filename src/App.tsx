@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { ArrowLeft, Dumbbell, Calendar, Target, TrendingUp, Image as ImageIcon, CheckCircle, XCircle, Clock, Plus, Trash2, Edit, Save, BarChart2, Search, Undo, Lock } from 'lucide-react';
+import { ArrowLeft, Dumbbell, Calendar, TrendingUp, Image as ImageIcon, CheckCircle, XCircle, Clock, Plus, Trash2, Edit, Save, BarChart2, Search, Undo, Lock, User, ChevronLeft, ChevronRight } from 'lucide-react';
 
 // --- Local Storage Helper Functions ---
 const LOCAL_STORAGE_KEYS = {
@@ -7,7 +7,8 @@ const LOCAL_STORAGE_KEYS = {
   WORKOUT_PLAN: 'workout_plan',
   LOGS: 'workout_logs',
   EXERCISE_PROGRESS: 'exercise_progress',
-  EXERCISE_MEDIA: 'exercise_media'
+  EXERCISE_MEDIA: 'exercise_media',
+  THEME: 'workout_theme',
 };
 
 const getFromStorage = (key) => {
@@ -80,6 +81,29 @@ const EXERCISE_LIST = [
 ];
 
 // --- Helper Components ---
+const ConfirmationModal = ({ isOpen, title, children, onConfirm, onDiscard, onClose }) => {
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-sm flex flex-col">
+                <div className="p-6 text-center">
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{title}</h3>
+                    <p className="text-gray-600 dark:text-gray-300">{children}</p>
+                </div>
+                <div className="flex border-t border-gray-200 dark:border-gray-700">
+                    <button onClick={onDiscard} className="w-1/2 p-3 text-red-600 dark:text-red-500 font-semibold hover:bg-gray-100 dark:hover:bg-gray-700 rounded-bl-lg transition-colors">
+                        Discard
+                    </button>
+                    <button onClick={onConfirm} className="w-1/2 p-3 text-indigo-600 dark:text-indigo-400 font-semibold hover:bg-gray-100 dark:hover:bg-gray-700 border-l border-gray-200 dark:border-gray-700 rounded-br-lg transition-colors">
+                        Confirm
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const Stepper = ({ currentStep, totalSteps }) => (
     <div className="w-full px-4 sm:px-8 mb-6">
         <div className="flex items-center">
@@ -117,7 +141,7 @@ const Button = ({ children, onClick, variant = 'primary', className = '', disabl
 
 // --- Simple Chart Components ---
 const SimpleLineChart = ({ data, title }) => {
-    if (!data || data.length === 0) return <p className="text-gray-500">No data available</p>;
+    if (!data || data.length === 0) return <p className="text-gray-500 dark:text-gray-400 text-center">No weight progress logged yet.</p>;
     
     const maxWeight = Math.max(...data.map(d => d.weight));
     const minWeight = Math.min(...data.map(d => d.weight));
@@ -125,16 +149,16 @@ const SimpleLineChart = ({ data, title }) => {
     
     return (
         <div className="w-full">
-            <h4 className="text-center mb-4 font-semibold">{title}</h4>
-            <div className="relative h-40 border border-gray-200 rounded">
+            <h4 className="text-center mb-4 font-semibold dark:text-white">{title}</h4>
+            <div className="relative h-40 border border-gray-200 dark:border-gray-700 rounded">
                 <svg className="w-full h-full">
                     {data.map((point, index) => {
-                        if (index === 0) return null;
+                        if (index === 0 || data.length < 2) return null;
                         const prevPoint = data[index - 1];
                         const x1 = ((index - 1) / (data.length - 1)) * 100;
                         const x2 = (index / (data.length - 1)) * 100;
-                        const y1 = 100 - ((prevPoint.weight - minWeight) / range) * 80;
-                        const y2 = 100 - ((point.weight - minWeight) / range) * 80;
+                        const y1 = 100 - (((prevPoint.weight - minWeight) / range) * 80 + 10);
+                        const y2 = 100 - (((point.weight - minWeight) / range) * 80 + 10);
                         
                         return (
                             <line
@@ -149,8 +173,9 @@ const SimpleLineChart = ({ data, title }) => {
                         );
                     })}
                     {data.map((point, index) => {
+                         if (data.length < 2) return null;
                         const x = (index / (data.length - 1)) * 100;
-                        const y = 100 - ((point.weight - minWeight) / range) * 80;
+                        const y = 100 - (((point.weight - minWeight) / range) * 80 + 10);
                         return (
                             <circle
                                 key={index}
@@ -179,10 +204,10 @@ const SimplePieChart = ({ data, title }) => {
     
     return (
         <div className="w-full">
-            <h4 className="text-center mb-4 font-semibold">{title}</h4>
+            <h4 className="text-center mb-4 font-semibold dark:text-white">{title}</h4>
             <div className="grid grid-cols-1 gap-2">
                 {data.map((item, index) => {
-                    const percentage = ((item.value / total) * 100).toFixed(1);
+                    const percentage = total > 0 ? ((item.value / total) * 100).toFixed(1) : 0;
                     return (
                         <div key={index} className="flex items-center justify-between">
                             <div className="flex items-center">
@@ -190,9 +215,9 @@ const SimplePieChart = ({ data, title }) => {
                                     className="w-4 h-4 rounded mr-2" 
                                     style={{ backgroundColor: colors[index % colors.length] }}
                                 ></div>
-                                <span className="text-sm">{item.name}</span>
+                                <span className="text-sm dark:text-gray-300">{item.name}</span>
                             </div>
-                            <span className="text-sm font-semibold">{percentage}%</span>
+                            <span className="text-sm font-semibold dark:text-gray-200">{percentage}%</span>
                         </div>
                     );
                 })}
@@ -435,9 +460,10 @@ const AddExerciseModal = ({ isOpen, onClose, onAddExercises, goals }) => {
     );
 };
 
-const ScheduleCreator = ({ onScheduleCreated }) => {
+const ScheduleCreator = ({ onScheduleCreated, setHasUnsavedChanges, saveScheduleRef, revertChangesRef }) => {
     const days = useMemo(() => ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Day 7'], []);
     const [workoutPlan, setWorkoutPlan] = useState(() => days.reduce((acc, day) => ({ ...acc, [day]: { name: '', exercises: [] } }), {}));
+    const [initialPlan, setInitialPlan] = useState(null);
     const [editingDay, setEditingDay] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [userGoals, setUserGoals] = useState([]);
@@ -448,36 +474,26 @@ const ScheduleCreator = ({ onScheduleCreated }) => {
             setUserGoals(profile.goals);
         }
 
-        const existingPlan = getFromStorage(LOCAL_STORAGE_KEYS.WORKOUT_PLAN);
-        if (existingPlan) {
-            setWorkoutPlan(existingPlan);
-        }
+        const existingPlan = getFromStorage(LOCAL_STORAGE_KEYS.WORKOUT_PLAN) || days.reduce((acc, day) => ({ ...acc, [day]: { name: '', exercises: [] } }), {});
+        setWorkoutPlan(existingPlan);
+        setInitialPlan(JSON.parse(JSON.stringify(existingPlan))); // Deep copy
     }, []);
 
     const handleAddExercises = (newExercises) => {
-        const exercisesWithDefaults = newExercises.map(ex => ({
-            name: ex.name,
-            muscle: ex.muscle,
-            sets: [{ reps: 10, weight: 10 }],
-            notes: ''
-        }));
+        const exercisesWithDefaults = newExercises.map(ex => ({ name: ex.name, muscle: ex.muscle, sets: [{ reps: 10, weight: 10 }], notes: '' }));
         setWorkoutPlan(prev => ({
             ...prev,
-            [editingDay]: {
-                ...prev[editingDay],
-                exercises: [...prev[editingDay].exercises, ...exercisesWithDefaults]
-            }
+            [editingDay]: { ...prev[editingDay], exercises: [...prev[editingDay].exercises, ...exercisesWithDefaults] }
         }));
+        setHasUnsavedChanges(true);
     };
     
     const removeExercise = (day, index) => {
         setWorkoutPlan(prev => ({
             ...prev,
-            [day]: {
-                ...prev[day],
-                exercises: prev[day].exercises.filter((_, i) => i !== index)
-            }
+            [day]: { ...prev[day], exercises: prev[day].exercises.filter((_, i) => i !== index) }
         }));
+        setHasUnsavedChanges(true);
     };
 
     const handleDayNameChange = (day, name) => {
@@ -485,46 +501,42 @@ const ScheduleCreator = ({ onScheduleCreated }) => {
             ...prev,
             [day]: { ...prev[day], name: name }
         }));
+        setHasUnsavedChanges(true);
     };
 
-    const saveSchedule = () => {
+    const saveSchedule = useCallback(() => {
         saveToStorage(LOCAL_STORAGE_KEYS.WORKOUT_PLAN, workoutPlan);
-
-        // Clear existing logs and create new ones
+        setInitialPlan(JSON.parse(JSON.stringify(workoutPlan))); // Update initial state on save
         const logs = [];
         let dayCounter = 0;
-        
         for (let i = 0; i < 7; i++) {
             const dayKey = `Day ${i + 1}`;
             const dayPlan = workoutPlan[dayKey];
-            
             if (dayPlan.exercises && dayPlan.exercises.length > 0) {
                 const nextDate = new Date();
                 nextDate.setDate(nextDate.getDate() + dayCounter);
-
                 logs.push({
-                    id: generateId(),
-                    day: String(i + 1),
-                    planDay: dayKey,
-                    name: dayPlan.name || '',
-                    date: nextDate.toISOString().split('T')[0],
-                    completed: false,
-                    skipped: false,
-                    exercises: dayPlan.exercises.map(ex => ({ 
-                        ...ex, 
-                        sets: ex.sets || [{reps: 10, weight: 10}], 
-                        logged: false, 
-                        notes: ex.notes || '' 
-                    }))
+                    id: generateId(), day: String(i + 1), planDay: dayKey, name: dayPlan.name || '', date: nextDate.toISOString().split('T')[0], completed: false, skipped: false,
+                    exercises: dayPlan.exercises.map(ex => ({ ...ex, sets: ex.sets || [{reps: 10, weight: 10}], logged: false, notes: ex.notes || '' }))
                 });
             }
             dayCounter++;
         }
-
         saveToStorage(LOCAL_STORAGE_KEYS.LOGS, logs);
+        setHasUnsavedChanges(false);
         alert("Schedule updated successfully!");
         onScheduleCreated();
-    };
+    }, [workoutPlan, onScheduleCreated, setHasUnsavedChanges]);
+
+    const revertChanges = useCallback(() => {
+        setWorkoutPlan(initialPlan);
+        setHasUnsavedChanges(false);
+    }, [initialPlan, setHasUnsavedChanges]);
+
+    useEffect(() => {
+        if (saveScheduleRef) saveScheduleRef.current = saveSchedule;
+        if (revertChangesRef) revertChangesRef.current = revertChanges;
+    }, [saveSchedule, revertChanges, saveScheduleRef, revertChangesRef]);
 
     if (editingDay) {
         return (
@@ -534,13 +546,7 @@ const ScheduleCreator = ({ onScheduleCreated }) => {
                     <Card>
                         <div className="mb-4">
                             <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Custom Day Name (Optional)</label>
-                            <input
-                                type="text"
-                                placeholder="e.g., Chest & Triceps"
-                                value={workoutPlan[editingDay].name}
-                                onChange={(e) => handleDayNameChange(editingDay, e.target.value)}
-                                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                            />
+                            <input type="text" placeholder="e.g., Chest & Triceps" value={workoutPlan[editingDay].name} onChange={(e) => handleDayNameChange(editingDay, e.target.value)} className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
                         </div>
                         <div className="mb-4 h-px bg-gray-200 dark:bg-gray-700"></div>
                         {workoutPlan[editingDay].exercises.length === 0 ? (
@@ -567,12 +573,7 @@ const ScheduleCreator = ({ onScheduleCreated }) => {
                         </div>
                     </Card>
                 </div>
-                <AddExerciseModal 
-                    isOpen={isModalOpen}
-                    onClose={() => setIsModalOpen(false)}
-                    onAddExercises={handleAddExercises}
-                    goals={userGoals}
-                />
+                <AddExerciseModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onAddExercises={handleAddExercises} goals={userGoals} />
             </>
         );
     }
@@ -615,6 +616,51 @@ const HomeScreen = ({ onNavigate }) => {
         setLogs(savedLogs);
         setLoading(false);
     }, []);
+
+    const calculateStreak = (logs) => {
+        const completedWorkouts = logs
+            .filter(log => log.completed && log.exercises && log.exercises.length > 0)
+            .map(log => log.date);
+
+        if (completedWorkouts.length === 0) {
+            return 0;
+        }
+
+        const uniqueDates = [...new Set(completedWorkouts)].sort();
+        
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const lastWorkoutDate = new Date(uniqueDates[uniqueDates.length - 1]);
+        lastWorkoutDate.setHours(0, 0, 0, 0);
+
+        const diffTime = today - lastWorkoutDate;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays > 1) {
+            return 0;
+        }
+
+        let streak = 1;
+        for (let i = uniqueDates.length - 1; i > 0; i--) {
+            const currentDate = new Date(uniqueDates[i]);
+            const previousDate = new Date(uniqueDates[i - 1]);
+            currentDate.setHours(0, 0, 0, 0);
+            previousDate.setHours(0, 0, 0, 0);
+
+            const dayDiff = (currentDate - previousDate) / (1000 * 60 * 60 * 24);
+
+            if (dayDiff === 1) {
+                streak++;
+            } else {
+                break;
+            }
+        }
+
+        return streak;
+    };
+
+    const streak = useMemo(() => calculateStreak(logs), [logs]);
 
     const getDayName = (log) => {
         if (log.name && log.name.trim() !== '') return log.name;
@@ -679,7 +725,13 @@ const HomeScreen = ({ onNavigate }) => {
     }
 
     return (
-        <div className="p-4 max-w-md mx-auto">
+        <div className="p-4 max-w-md mx-auto relative">
+             {streak > 0 && (
+                <div className="absolute top-4 right-4 bg-orange-100 dark:bg-gray-700 text-orange-600 dark:text-orange-400 font-bold px-3 py-1 rounded-full flex items-center text-lg shadow-sm">
+                    <span>🔥</span>
+                    <span className="ml-1">{streak}</span>
+                </div>
+            )}
             <h1 className="text-3xl font-bold mb-8 text-center dark:text-white">Workout Timeline</h1>
             <div className="space-y-4">
                 {timelineDays.map((day, index) => {
@@ -883,15 +935,15 @@ const DayDetail = ({ logId, onBack, onNavigate }) => {
                         <div className="flex justify-between items-start">
                              <h3 className={`text-xl font-bold mb-3 dark:text-white ${ex.skipped ? 'line-through' : ''}`}>{ex.name}</h3>
                              <div className="flex items-center space-x-2">
-                                <button onClick={() => onNavigate('progressGraph', { exerciseName: ex.name, logId: log.id })} className="text-gray-500 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400">
+                                <button onClick={() => onNavigate('exerciseDetailAnalytics', { exerciseName: ex.name, logId: log.id })} className="text-gray-500 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400">
                                     <BarChart2 size={20} />
                                 </button>
-                                <button onClick={() => onNavigate('mediaManager', { exerciseName: ex.name, logId: log.id })} className="text-gray-500 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400">
+                                <button onClick={() => onNavigate('mediaManager', { exerciseName: ex.name, logDate: log.date, logId: log.id })} className="text-gray-500 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400">
                                     <ImageIcon size={20} />
                                 </button>
                              </div>
                         </div>
-                       
+                        
                         {!ex.skipped && (
                             <>
                                 <div className="grid grid-cols-12 gap-2 mb-2 px-2 text-sm font-semibold text-gray-500 dark:text-gray-400">
@@ -956,52 +1008,9 @@ const DayDetail = ({ logId, onBack, onNavigate }) => {
     );
 };
 
-const ProgressGraph = ({ exerciseName, onBack }) => {
-    const [data, setData] = useState([]);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        const exerciseProgress = getFromStorage(LOCAL_STORAGE_KEYS.EXERCISE_PROGRESS) || [];
-        const filteredData = exerciseProgress
-            .filter(d => d.exerciseName === exerciseName)
-            .sort((a, b) => new Date(a.date) - new Date(b.date))
-            .map(d => ({...d, date: new Date(d.date).toLocaleDateString('en-ca')}));
-        
-        setData(filteredData);
-        setLoading(false);
-    }, [exerciseName]);
-
-    if (loading) return <div className="text-center p-10 dark:text-white">Loading graph...</div>;
-    
-    return (
-        <div className="p-4">
-            <button onClick={onBack} className="flex items-center text-indigo-600 mb-4"><ArrowLeft size={18} className="mr-2"/> Back</button>
-            <h2 className="text-2xl font-bold mb-4 dark:text-white">Progress for {exerciseName}</h2>
-             {data.length === 0 ? (
-                <p className="text-center text-gray-500 dark:text-gray-400">No progress logged for this exercise yet.</p>
-             ) : (
-                <Card>
-                    <SimpleLineChart data={data} title="Weight Progress Over Time" />
-                </Card>
-             )}
-        </div>
-    );
-};
-
-const MediaManager = ({ exerciseName, onBack }) => {
+const MediaManager = ({ exerciseName, logDate, onBack }) => {
     const [media, setMedia] = useState(null);
     const [caption, setCaption] = useState('');
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        const exerciseMedia = getFromStorage(LOCAL_STORAGE_KEYS.EXERCISE_MEDIA) || {};
-        const savedMedia = exerciseMedia[exerciseName];
-        if (savedMedia) {
-            setMedia({ type: savedMedia.type, base64: savedMedia.base64 });
-            setCaption(savedMedia.caption || '');
-        }
-        setLoading(false);
-    }, [exerciseName]);
 
     const handleFileChange = (event) => {
         const file = event.target.files[0];
@@ -1023,24 +1032,27 @@ const MediaManager = ({ exerciseName, onBack }) => {
             return;
         }
         
-        const exerciseMedia = getFromStorage(LOCAL_STORAGE_KEYS.EXERCISE_MEDIA) || {};
-        exerciseMedia[exerciseName] = {
+        const allMedia = getFromStorage(LOCAL_STORAGE_KEYS.EXERCISE_MEDIA) || {};
+        const exerciseMediaHistory = allMedia[exerciseName] || [];
+        
+        exerciseMediaHistory.push({
+            date: logDate,
             type: media.type,
             base64: media.base64,
             caption: caption
-        };
-        saveToStorage(LOCAL_STORAGE_KEYS.EXERCISE_MEDIA, exerciseMedia);
+        });
+
+        allMedia[exerciseName] = exerciseMediaHistory;
+        saveToStorage(LOCAL_STORAGE_KEYS.EXERCISE_MEDIA, allMedia);
         
-        alert("Media saved!");
+        alert("Media saved to history!");
         onBack();
     };
-
-    if (loading) return <div className="text-center p-10 dark:text-white">Loading media...</div>;
 
     return (
         <div className="p-4 max-w-lg mx-auto">
             <button onClick={onBack} className="flex items-center text-indigo-600 mb-4"><ArrowLeft size={18} className="mr-2"/> Back</button>
-            <h2 className="text-2xl font-bold mb-4 dark:text-white">Media for {exerciseName}</h2>
+            <h2 className="text-2xl font-bold mb-4 dark:text-white">Add Media for {exerciseName}</h2>
             <Card>
                 <div className="mb-4">
                     <label className="block text-lg font-medium text-gray-700 dark:text-gray-200 mb-2">Attach Image/Video</label>
@@ -1062,9 +1074,116 @@ const MediaManager = ({ exerciseName, onBack }) => {
     );
 };
 
-const WorkoutAnalytics = () => {
+const ImageHistoryViewer = ({ exerciseName }) => {
+    const [history, setHistory] = useState([]);
+    const [currentIndex, setCurrentIndex] = useState(0);
+    const [fade, setFade] = useState(true);
+    const intervalRef = useRef(null);
+
+    useEffect(() => {
+        const allMedia = getFromStorage(LOCAL_STORAGE_KEYS.EXERCISE_MEDIA) || {};
+        const exerciseMediaHistory = (allMedia[exerciseName] || []).sort((a, b) => new Date(a.date) - new Date(b.date));
+        setHistory(exerciseMediaHistory);
+    }, [exerciseName]);
+
+    const goToNext = useCallback(() => {
+        setFade(false);
+        setTimeout(() => {
+            setCurrentIndex(prevIndex => (prevIndex + 1) % history.length);
+            setFade(true);
+        }, 500); // Corresponds to fade-out duration
+    }, [history.length]);
+
+    const goToPrevious = () => {
+        setFade(false);
+        setTimeout(() => {
+            setCurrentIndex(prevIndex => (prevIndex - 1 + history.length) % history.length);
+            setFade(true);
+        }, 500);
+    };
+
+    useEffect(() => {
+        if (history.length > 1) {
+            intervalRef.current = setInterval(goToNext, 800);
+        }
+        return () => clearInterval(intervalRef.current);
+    }, [history.length, goToNext]);
+
+    if (history.length === 0) {
+        return <p className="text-gray-500 dark:text-gray-400 text-center mt-4">No image history for this exercise.</p>;
+    }
+
+    const currentMedia = history[currentIndex];
+
+    return (
+        <div className="w-full mt-6">
+            <h4 className="text-center mb-4 font-semibold dark:text-white">Image History</h4>
+            <div className="relative w-full max-w-md mx-auto aspect-video bg-gray-200 dark:bg-gray-700 rounded-lg shadow-inner overflow-hidden">
+                <img 
+                    key={currentIndex}
+                    src={currentMedia.base64} 
+                    alt={currentMedia.caption || `Image from ${new Date(currentMedia.date).toLocaleDateString()}`}
+                    className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-500 ${fade ? 'opacity-100' : 'opacity-0'}`}
+                />
+                {history.length > 1 && (
+                    <>
+                        <button onClick={goToPrevious} className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 text-white p-2 rounded-full hover:bg-black/50 transition-colors">
+                            <ChevronLeft size={24} />
+                        </button>
+                        <button onClick={goToNext} className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/30 text-white p-2 rounded-full hover:bg-black/50 transition-colors">
+                            <ChevronRight size={24} />
+                        </button>
+                    </>
+                )}
+            </div>
+            <div className="text-center mt-2">
+                <p className="font-semibold dark:text-white">{currentMedia.caption}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{new Date(currentMedia.date).toLocaleDateString()}</p>
+            </div>
+        </div>
+    );
+};
+
+
+const ExerciseDetailAnalytics = ({ exerciseName, onBack }) => {
+    const [progressData, setProgressData] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const exerciseProgress = getFromStorage(LOCAL_STORAGE_KEYS.EXERCISE_PROGRESS) || [];
+        const filteredData = exerciseProgress
+            .filter(d => d.exerciseName === exerciseName)
+            .sort((a, b) => new Date(a.date) - new Date(b.date))
+            .map(d => ({...d, date: new Date(d.date).toLocaleDateString('en-ca')}));
+        
+        setProgressData(filteredData);
+        setLoading(false);
+    }, [exerciseName]);
+
+    if (loading) return <div className="text-center p-10 dark:text-white">Loading analytics...</div>;
+    
+    return (
+        <div className="p-4">
+            <button onClick={onBack} className="flex items-center text-indigo-600 mb-4"><ArrowLeft size={18} className="mr-2"/> Back</button>
+            <h2 className="text-3xl font-bold mb-6 text-center dark:text-white">Analytics for {exerciseName}</h2>
+            <Card className="mb-6">
+                <SimpleLineChart data={progressData} title="Weight Progress" />
+            </Card>
+            <Card>
+                <ImageHistoryViewer exerciseName={exerciseName} />
+            </Card>
+        </div>
+    );
+};
+
+
+const ProfileScreen = ({ theme, setTheme }) => {
     const [analyticsData, setAnalyticsData] = useState(null);
     const [loading, setLoading] = useState(true);
+
+    const handleThemeToggle = () => {
+        setTheme(prevTheme => prevTheme === 'light' ? 'dark' : 'light');
+    };
 
     useEffect(() => {
         const logs = getFromStorage(LOCAL_STORAGE_KEYS.LOGS) || [];
@@ -1110,99 +1229,151 @@ const WorkoutAnalytics = () => {
         setLoading(false);
     }, []);
 
-    if (loading) return <div className="text-center p-10 dark:text-white">Loading analytics...</div>;
-    if (!analyticsData) return <div className="text-center p-10 dark:text-white">No workout data available to generate analytics.</div>;
-
     return (
-        <div className="p-4 space-y-6">
-            <h1 className="text-3xl font-bold dark:text-white">Workout Analytics</h1>
-            <Card>
-                <h2 className="text-xl font-bold mb-2 dark:text-white">Total Volume Lifted</h2>
-                <p className="text-4xl font-bold text-indigo-600">{analyticsData.totalVolume.toLocaleString(undefined, {maximumFractionDigits: 0})} kg</p>
-                <p className="text-gray-500 dark:text-gray-400">Total weight lifted across all workouts.</p>
-            </Card>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <Card>
-                    <SimplePieChart data={analyticsData.muscleFrequencyData} title="Muscle Group Frequency" />
-                </Card>
-                {analyticsData.weightProgress && Object.keys(analyticsData.weightProgress).length > 0 &&
+        <div className="p-4 space-y-6 relative">
+             <button 
+                onClick={handleThemeToggle} 
+                className="absolute top-5 right-5 z-10 bg-gray-200 dark:bg-gray-700 p-2 rounded-full text-xl"
+            >
+                {theme === 'light' ? '🌙' : '☀️'}
+            </button>
+            <h1 className="text-3xl font-bold dark:text-white">Profile & Stats</h1>
+            
+            {loading && <div className="text-center p-10 dark:text-white">Loading analytics...</div>}
+            {!loading && !analyticsData && <div className="text-center p-10 dark:text-white">No workout data available to generate analytics.</div>}
+            {!loading && analyticsData && (
+                <>
                     <Card>
-                        <SimpleLineChart 
-                            data={analyticsData.weightProgress[Object.keys(analyticsData.weightProgress)[0]]} 
-                            title={`Weight Progress: ${Object.keys(analyticsData.weightProgress)[0]}`} 
-                        />
+                        <h2 className="text-xl font-bold mb-2 dark:text-white">Total Volume Lifted</h2>
+                        <p className="text-4xl font-bold text-indigo-600">{analyticsData.totalVolume.toLocaleString(undefined, {maximumFractionDigits: 0})} kg</p>
+                        <p className="text-gray-500 dark:text-gray-400">Total weight lifted across all workouts.</p>
                     </Card>
-                }
-            </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <Card>
+                            <SimplePieChart data={analyticsData.muscleFrequencyData} title="Muscle Group Frequency" />
+                        </Card>
+                        {analyticsData.weightProgress && Object.keys(analyticsData.weightProgress).length > 0 &&
+                            <Card>
+                                <SimpleLineChart 
+                                    data={analyticsData.weightProgress[Object.keys(analyticsData.weightProgress)[0]]} 
+                                    title={`Weight Progress: ${Object.keys(analyticsData.weightProgress)[0]}`} 
+                                />
+                            </Card>
+                        }
+                    </div>
+                </>
+            )}
         </div>
     );
 };
 
 // --- Main App Component ---
 export default function App() {
-    const [loading, setLoading] = useState(true);
     const [appState, setAppState] = useState('loading');
     const [navParams, setNavParams] = useState({});
+    const [theme, setTheme] = useState(() => getFromStorage(LOCAL_STORAGE_KEYS.THEME) || 'light');
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+    const [navAttempt, setNavAttempt] = useState({ showModal: false, nextScreen: null });
+    const saveScheduleRef = useRef(null);
+    const revertScheduleChangesRef = useRef(null);
+
+    useEffect(() => {
+        const root = window.document.documentElement;
+        const isDark = theme === 'dark';
+        root.classList.remove(isDark ? 'light' : 'dark');
+        root.classList.add(theme);
+        saveToStorage(LOCAL_STORAGE_KEYS.THEME, theme);
+    }, [theme]);
 
     useEffect(() => {
         const profile = getFromStorage(LOCAL_STORAGE_KEYS.USER_PROFILE);
-        const workoutPlan = getFromStorage(LOCAL_STORAGE_KEYS.WORKOUT_PLAN);
-        
-        if (!profile || !profile.metrics) {
-            setAppState('onboarding');
-        } else if (!workoutPlan) {
-            setAppState('schedule');
-        } else {
-            const hasExercises = Object.values(workoutPlan).some(day => day.exercises && day.exercises.length > 0);
-            if (!hasExercises) {
+        if (profile && profile.metrics) {
+            const workoutPlan = getFromStorage(LOCAL_STORAGE_KEYS.WORKOUT_PLAN);
+            if (!workoutPlan || !Object.values(workoutPlan).some(day => day.exercises && day.exercises.length > 0)) {
                 setAppState('schedule');
             } else {
                 setAppState('home');
             }
+        } else {
+            setAppState('onboarding');
         }
-        setLoading(false);
     }, []);
+
+    const handleOnboardingFinish = () => {
+        setAppState('schedule');
+    };
 
     const handleNavigation = (screen, params = {}) => {
         setNavParams(params);
         setAppState(screen);
     };
 
+    const handleNavAttempt = (screen) => {
+        if (appState === 'schedule' && hasUnsavedChanges && screen !== 'schedule') {
+            setNavAttempt({ showModal: true, nextScreen: screen });
+        } else {
+            setAppState(screen);
+        }
+    };
+
+    const handleModalConfirm = () => {
+        if (saveScheduleRef.current) {
+            saveScheduleRef.current(); // This will save and also set hasUnsavedChanges to false
+        }
+        setAppState(navAttempt.nextScreen);
+        setNavAttempt({ showModal: false, nextScreen: null });
+    };
+
+    const handleModalDiscard = () => {
+        if (revertScheduleChangesRef.current) {
+            revertScheduleChangesRef.current(); // This will revert and set hasUnsavedChanges to false
+        }
+        setAppState(navAttempt.nextScreen);
+        setNavAttempt({ showModal: false, nextScreen: null });
+    };
+
     const renderContent = () => {
-        if (loading || appState === 'loading') {
-            return <div className="flex justify-center items-center h-screen dark:text-white">
+        if (appState === 'loading') {
+            return <div className="flex justify-center items-center h-screen">
                 <Dumbbell className="animate-spin h-12 w-12 text-indigo-600" />
             </div>;
         }
 
+        if (appState === 'onboarding') {
+            return <Onboarding onFinish={handleOnboardingFinish} />;
+        }
+        
         switch (appState) {
-            case 'onboarding':
-                return <Onboarding onFinish={() => setAppState('schedule')} />;
             case 'schedule':
-                return <ScheduleCreator onScheduleCreated={() => setAppState('home')} />;
+                return <ScheduleCreator 
+                    onScheduleCreated={() => setAppState('home')} 
+                    setHasUnsavedChanges={setHasUnsavedChanges}
+                    saveScheduleRef={saveScheduleRef}
+                    revertChangesRef={revertScheduleChangesRef}
+                />;
             case 'home':
                 return <HomeScreen onNavigate={handleNavigation} />;
             case 'dayDetail':
                 return <DayDetail logId={navParams.logId} onBack={() => setAppState('home')} onNavigate={handleNavigation} />;
-            case 'progressGraph':
-                return <ProgressGraph exerciseName={navParams.exerciseName} onBack={() => handleNavigation('dayDetail', { logId: navParams.logId })} />;
+            case 'exerciseDetailAnalytics':
+                return <ExerciseDetailAnalytics exerciseName={navParams.exerciseName} onBack={() => handleNavigation('dayDetail', { logId: navParams.logId })} />;
             case 'mediaManager':
-                 return <MediaManager exerciseName={navParams.exerciseName} onBack={() => handleNavigation('dayDetail', { logId: navParams.logId })} />;
-            case 'analytics':
-                return <WorkoutAnalytics />;
+                 return <MediaManager exerciseName={navParams.exerciseName} logDate={navParams.logDate} onBack={() => handleNavigation('dayDetail', { logId: navParams.logId })} />;
+            case 'profile':
+                return <ProfileScreen theme={theme} setTheme={setTheme} />;
             default:
-                return <div className="text-center text-red-500">Something went wrong.</div>;
+                return <HomeScreen onNavigate={handleNavigation} />;
         }
     };
 
     const NavItem = ({ screen, icon, label }) => (
-        <button onClick={() => setAppState(screen)} className={`flex flex-col items-center justify-center p-2 rounded-lg transition-colors w-full ${appState === screen ? 'text-indigo-600 bg-indigo-100 dark:bg-gray-700' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
+        <button onClick={() => handleNavAttempt(screen)} className={`flex flex-col items-center justify-center p-2 rounded-lg transition-colors w-full ${appState === screen ? 'text-indigo-600 bg-indigo-100 dark:bg-gray-700 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
             {icon}
             <span className="text-xs font-medium">{label}</span>
         </button>
     );
-
-    const showNav = !loading && appState !== 'loading' && appState !== 'onboarding';
+    
+    const showNav = appState !== 'loading' && appState !== 'onboarding';
 
     return (
         <div className="bg-gray-50 dark:bg-gray-900 min-h-screen font-sans">
@@ -1212,12 +1383,20 @@ export default function App() {
             {showNav && (
                 <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shadow-lg">
                     <div className="max-w-4xl mx-auto grid grid-cols-3 gap-1 sm:gap-2 p-1">
-                        <NavItem screen="home" icon={<Calendar size={24} />} label="Timeline" />
                         <NavItem screen="schedule" icon={<Edit size={24} />} label="Plan" />
-                        <NavItem screen="analytics" icon={<TrendingUp size={24} />} label="Stats" />
+                        <NavItem screen="home" icon={<Calendar size={24} />} label="Timeline" />
+                        <NavItem screen="profile" icon={<User size={24} />} label="Profile" />
                     </div>
                 </nav>
             )}
+            <ConfirmationModal
+                isOpen={navAttempt.showModal}
+                title="Update Schedule?"
+                onConfirm={handleModalConfirm}
+                onDiscard={handleModalDiscard}
+            >
+                You have unsaved changes in your weekly plan. Do you want to save them before leaving?
+            </ConfirmationModal>
         </div>
     );
 }
