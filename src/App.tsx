@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { ArrowLeft, Dumbbell, Calendar, Target, TrendingUp, Image as ImageIcon, CheckCircle, XCircle, Clock, Plus, Trash2, Edit, Save, BarChart2, Search, Undo, Lock, LayoutGrid, User, Camera, Flame, Minus, ChevronLeft, ChevronRight, Barcode, AlertTriangle, RefreshCw, Info } from 'lucide-react';
 
 // --- App Version ---
-const LATEST_APP_VERSION = '27.3';
+const LATEST_APP_VERSION = '27.4';
 
 // --- Custom Hook for loading external scripts ---
 const useScript = (url) => {
@@ -1815,6 +1815,7 @@ const ProfilePage = ({ onNavigate }) => {
     const [resetInput, setResetInput] = useState('');
     const [resetType, setResetType] = useState(null); // 'timeline' or 'calorie'
     const importFileRef = useRef(null);
+    const photoInputRef = useRef(null);
 
     useEffect(() => {
         const userProfile = getFromStorage(LOCAL_STORAGE_KEYS.USER_PROFILE);
@@ -1836,6 +1837,39 @@ const ProfilePage = ({ onNavigate }) => {
             setIsEditing(false);
         }
     };
+    
+    const handlePhotoChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                const updatedProfile = { ...profile, photo: reader.result };
+                setProfile(updatedProfile);
+                saveToStorage(LOCAL_STORAGE_KEYS.USER_PROFILE, updatedProfile);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+    
+    const handleProfileUpdate = (key, value) => {
+        const updatedProfile = { ...profile, [key]: value };
+        setProfile(updatedProfile);
+        saveToStorage(LOCAL_STORAGE_KEYS.USER_PROFILE, updatedProfile);
+    };
+
+    const bmiData = useMemo(() => {
+        if (!profile || !profile.weight || !profile.height) return { value: 0, status: 'N/A', color: 'bg-gray-400' };
+        
+        const heightInMeters = profile.height / 100;
+        const bmi = profile.weight / (heightInMeters * heightInMeters);
+        const bmiValue = parseFloat(bmi.toFixed(1));
+
+        if (bmiValue < 18.5) return { value: bmiValue, status: 'Underweight', color: 'bg-orange-400' };
+        if (bmiValue >= 18.5 && bmiValue <= 24.9) return { value: bmiValue, status: 'Healthy', color: 'bg-green-500' };
+        if (bmiValue >= 25 && bmiValue <= 29.9) return { value: bmiValue, status: 'Overweight', color: 'bg-orange-400' };
+        return { value: bmiValue, status: 'Obese', color: 'bg-red-500' };
+    }, [profile]);
+
 
     const handleExportData = () => {
         const dataToExport = {};
@@ -1970,11 +2004,26 @@ const ProfilePage = ({ onNavigate }) => {
 
             <Card>
                 <div className="flex items-center space-x-4 mb-6">
-                    <img 
-                        src={profile.photo || `https://placehold.co/100x100/E2E8F0/4A5568?text=${name.charAt(0)}`} 
-                        alt="Profile" 
-                        className="w-24 h-24 rounded-full object-cover border-4 border-gray-200"
-                    />
+                    <div className="relative">
+                        <img 
+                            src={profile.photo || `https://placehold.co/100x100/E2E8F0/4A5568?text=${name.charAt(0)}`} 
+                            alt="Profile" 
+                            className="w-24 h-24 rounded-full object-cover border-4 border-gray-200"
+                        />
+                         <button 
+                            onClick={() => photoInputRef.current.click()}
+                            className="absolute bottom-0 right-0 bg-white rounded-full p-2 shadow-md hover:bg-gray-100"
+                        >
+                            <Camera size={16} className="text-gray-600" />
+                        </button>
+                        <input 
+                            type="file" 
+                            ref={photoInputRef} 
+                            className="hidden" 
+                            accept="image/*" 
+                            onChange={handlePhotoChange} 
+                        />
+                    </div>
                     <div className="flex-grow">
                         {isEditing ? (
                             <div className="flex items-center space-x-2">
@@ -1996,6 +2045,25 @@ const ProfilePage = ({ onNavigate }) => {
                                 </button>
                             </div>
                         )}
+                    </div>
+                </div>
+            </Card>
+
+            <Card className="mt-6">
+                <h3 className="text-xl font-bold mb-4">Your Stats</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="text-center p-2 rounded-lg bg-gray-100">
+                        <label className="text-sm font-medium text-gray-500">Weight (kg)</label>
+                        <NumberStepper value={Math.round(profile.weight)} onChange={(val) => handleProfileUpdate('weight', val)} step={1} min={30} />
+                    </div>
+                    <div className="text-center p-2 rounded-lg bg-gray-100">
+                        <label className="text-sm font-medium text-gray-500">Height (cm)</label>
+                        <NumberStepper value={Math.round(profile.height)} onChange={(val) => handleProfileUpdate('height', val)} step={1} min={120} />
+                    </div>
+                    <div className={`text-center p-4 rounded-lg text-white ${bmiData.color}`}>
+                        <label className="text-sm font-medium opacity-80">BMI</label>
+                        <p className="text-3xl font-bold">{bmiData.value}</p>
+                        <p className="text-xs font-semibold">{bmiData.status}</p>
                     </div>
                 </div>
             </Card>
@@ -2041,6 +2109,15 @@ const ProfilePage = ({ onNavigate }) => {
                     Importing data will overwrite your current progress. Use with caution.
                 </p>
             </Card>
+
+            <div className="fixed bottom-28 right-4 flex flex-col items-end gap-4">
+                <button onClick={() => window.location.reload()} className="bg-white p-3 rounded-full shadow-lg hover:bg-gray-100">
+                    <RefreshCw size={24} className="text-gray-700"/>
+                </button>
+                <div className="bg-white px-3 py-1 rounded-full shadow-lg text-xs text-gray-600 font-semibold">
+                    v{LATEST_APP_VERSION}
+                </div>
+            </div>
         </div>
     );
 };
