@@ -2121,7 +2121,7 @@ const BarcodeScannerModal = ({ isOpen, onClose, onScanSuccess }) => {
                 <div id={readerId} style={{ width: '100%', minHeight: '300px', border: '1px solid #eee' }}></div>
                 <p className="text-center text-gray-600 mt-4 h-10">{message}</p>
                 <div className="text-center mt-6">
-                    <Button onClick={onClose} variant="secondary">Cancel</Button>
+                    <Button onClick={onClose} variant="secondary">Close</Button>
                 </div>
             </div>
         </div>
