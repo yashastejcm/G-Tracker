@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { ArrowLeft, Dumbbell, Calendar, Target, TrendingUp, Image as ImageIcon, CheckCircle, XCircle, Clock, Plus, Trash2, Edit, Save, BarChart2, Search, Undo, Lock, LayoutGrid, User, Camera, Flame, Minus, ChevronLeft, ChevronRight, Barcode, AlertTriangle, RefreshCw, Info } from 'lucide-react';
 
 // --- App Version ---
-const LATEST_APP_VERSION = '27.6';
+const LATEST_APP_VERSION = '27.7';
 
 // --- Custom Hook for loading external scripts ---
 const useScript = (url) => {
@@ -736,7 +736,18 @@ const PlanConfiguration = ({ onFinish, onBack, profileData, setProfileData }) =>
     }, [excludeLegs, profileData.fitnessLevel, selectedDays]);
 
     const handleFinalizePlan = () => {
-        saveToStorage(LOCAL_STORAGE_KEYS.USER_PROFILE, profileData);
+        // Convert single weight/height to history arrays for backward compatibility
+        const finalProfile = { ...profileData };
+        if (typeof finalProfile.weight === 'number') {
+            finalProfile.weightHistory = [{ value: finalProfile.weight, date: new Date().toISOString().split('T')[0] }];
+            delete finalProfile.weight;
+        }
+        if (typeof finalProfile.height === 'number') {
+            finalProfile.heightHistory = [{ value: finalProfile.height, date: new Date().toISOString().split('T')[0] }];
+            delete finalProfile.height;
+        }
+
+        saveToStorage(LOCAL_STORAGE_KEYS.USER_PROFILE, finalProfile);
         saveToStorage(LOCAL_STORAGE_KEYS.WORKOUT_PLAN, workoutPlan);
 
         const logs = [];
@@ -1547,8 +1558,8 @@ const DayDetail = ({ logId, onBack, onNavigate }) => {
                                 <Button onClick={() => addSet(exerciseIndex)} variant="secondary" className="w-full py-2">
                                     <Plus size={18} className="inline-block mr-2" /> Add Set
                                 </Button>
-                                <button onClick={() => toggleSkipExercise(exerciseIndex)} className="bg-red-500 text-white rounded-full px-4 py-2 font-semibold hover:bg-red-600">
-                                    Give Up
+                                <button onClick={() => toggleSkipExercise(exerciseIndex)} className="bg-red-500 text-white rounded-full h-12 w-12 flex-shrink-0 flex items-center justify-center hover:bg-red-600">
+                                    <XCircle size={24}/>
                                 </button>
                                 </>
                             ) : (
@@ -1818,8 +1829,18 @@ const ProfilePage = ({ onNavigate }) => {
     const photoInputRef = useRef(null);
 
     useEffect(() => {
-        const userProfile = getFromStorage(LOCAL_STORAGE_KEYS.USER_PROFILE);
+        let userProfile = getFromStorage(LOCAL_STORAGE_KEYS.USER_PROFILE);
         if (userProfile) {
+            // Migration for weight/height history
+            if (typeof userProfile.weight === 'number') {
+                userProfile.weightHistory = [{ value: userProfile.weight, date: new Date().toISOString().split('T')[0] }];
+                delete userProfile.weight;
+            }
+            if (typeof userProfile.height === 'number') {
+                userProfile.heightHistory = [{ value: userProfile.height, date: new Date().toISOString().split('T')[0] }];
+                delete userProfile.height;
+            }
+            saveToStorage(LOCAL_STORAGE_KEYS.USER_PROFILE, userProfile);
             setProfile(userProfile);
             setName(userProfile.name);
         }
@@ -1852,16 +1873,30 @@ const ProfilePage = ({ onNavigate }) => {
     };
     
     const handleProfileUpdate = (key, value) => {
-        const updatedProfile = { ...profile, [key]: value };
+        const historyKey = `${key}History`;
+        const newHistory = [...(profile[historyKey] || [])];
+        
+        // Only add a new entry if the value has changed
+        const lastEntry = newHistory[newHistory.length - 1];
+        if (!lastEntry || lastEntry.value !== value) {
+            newHistory.push({ value, date: new Date().toISOString().split('T')[0] });
+        }
+
+        const updatedProfile = { ...profile, [historyKey]: newHistory };
         setProfile(updatedProfile);
         saveToStorage(LOCAL_STORAGE_KEYS.USER_PROFILE, updatedProfile);
     };
 
     const bmiData = useMemo(() => {
-        if (!profile || !profile.weight || !profile.height) return { value: 0, status: 'N/A', color: 'bg-gray-400' };
+        if (!profile || !profile.weightHistory || !profile.heightHistory) return { value: 0, status: 'N/A', color: 'bg-gray-400' };
         
-        const heightInMeters = profile.height / 100;
-        const bmi = profile.weight / (heightInMeters * heightInMeters);
+        const currentWeight = profile.weightHistory[profile.weightHistory.length - 1].value;
+        const currentHeight = profile.heightHistory[profile.heightHistory.length - 1].value;
+        
+        if (!currentWeight || !currentHeight) return { value: 0, status: 'N/A', color: 'bg-gray-400' };
+
+        const heightInMeters = currentHeight / 100;
+        const bmi = currentWeight / (heightInMeters * heightInMeters);
         const bmiValue = parseFloat(bmi.toFixed(1));
 
         if (bmiValue < 18.5) return { value: bmiValue, status: 'Underweight', color: 'bg-orange-400' };
@@ -2050,24 +2085,27 @@ const ProfilePage = ({ onNavigate }) => {
             </Card>
 
             <Card className="mt-6">
-                <h3 className="text-xl font-bold mb-4">Your Stats</h3>
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-xl font-bold">Your Stats</h3>
+                    <Button onClick={() => onNavigate('statsHistory')} variant="secondary" className="py-1 px-4 text-sm">View History</Button>
+                </div>
                 <div className="space-y-4">
                     <div className="flex justify-between items-center bg-gray-50 p-3 rounded-lg">
                         <div>
                             <p className="text-sm text-gray-500">Weight</p>
-                            <p className="text-2xl font-semibold text-gray-800">{Math.round(profile.weight)} <span className="text-base font-normal">kg</span></p>
+                            <p className="text-2xl font-semibold text-gray-800">{profile.weightHistory.slice(-1)[0].value} <span className="text-base font-normal">kg</span></p>
                         </div>
                         <div className="w-32">
-                             <NumberStepper value={Math.round(profile.weight)} onChange={(val) => handleProfileUpdate('weight', val)} step={1} min={30} />
+                             <NumberStepper value={profile.weightHistory.slice(-1)[0].value} onChange={(val) => handleProfileUpdate('weight', val)} step={1} min={30} />
                         </div>
                     </div>
                     <div className="flex justify-between items-center bg-gray-50 p-3 rounded-lg">
                         <div>
                             <p className="text-sm text-gray-500">Height</p>
-                            <p className="text-2xl font-semibold text-gray-800">{Math.round(profile.height)} <span className="text-base font-normal">cm</span></p>
+                            <p className="text-2xl font-semibold text-gray-800">{profile.heightHistory.slice(-1)[0].value} <span className="text-base font-normal">cm</span></p>
                         </div>
                         <div className="w-32">
-                             <NumberStepper value={Math.round(profile.height)} onChange={(val) => handleProfileUpdate('height', val)} step={1} min={120} />
+                             <NumberStepper value={profile.heightHistory.slice(-1)[0].value} onChange={(val) => handleProfileUpdate('height', val)} step={1} min={120} />
                         </div>
                     </div>
                     <div className={`p-4 rounded-lg text-white ${bmiData.color} flex justify-between items-center`}>
@@ -2090,10 +2128,10 @@ const ProfilePage = ({ onNavigate }) => {
                         Customize Calorie Tracker
                     </Button>
                     <div className="grid grid-cols-2 gap-4">
-                         <Button onClick={() => {setResetType('timeline'); setResetStep(1);}} variant="lightDanger" className="w-full">
+                         <Button onClick={() => {setResetType('timeline'); setResetStep(1);}} variant="lightDanger" className="w-full text-sm px-2">
                             Reset Timeline
                         </Button>
-                        <Button onClick={() => {setResetType('calorie'); setResetStep(1);}} variant="lightDanger" className="w-full">
+                        <Button onClick={() => {setResetType('calorie'); setResetStep(1);}} variant="lightDanger" className="w-full text-sm px-2">
                             Reset Calorie Data
                         </Button>
                     </div>
