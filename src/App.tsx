@@ -1,6 +1,59 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { ArrowLeft, Dumbbell, Calendar, Target, TrendingUp, Image as ImageIcon, CheckCircle, XCircle, Clock, Plus, Trash2, Edit, Save, BarChart2, Search, Undo, Lock, LayoutGrid, User, Camera, Flame, Minus, ChevronLeft, ChevronRight, Barcode } from 'lucide-react';
 
+// --- Custom Hook for loading external scripts ---
+const useScript = (url) => {
+  const [status, setStatus] = useState(url ? "loading" : "idle");
+
+  useEffect(() => {
+    if (!url) {
+      setStatus("idle");
+      return;
+    }
+
+    let script = document.querySelector(`script[src="${url}"]`);
+
+    if (!script) {
+      script = document.createElement("script");
+      script.src = url;
+      script.async = true;
+      script.setAttribute("data-status", "loading");
+      document.body.appendChild(script);
+
+      const setAttributeFromEvent = (event) => {
+        script.setAttribute("data-status", event.type === "load" ? "ready" : "error");
+      };
+
+      script.addEventListener("load", setAttributeFromEvent);
+      script.addEventListener("error", setAttributeFromEvent);
+    }
+
+    const setStateFromEvent = (event) => {
+      setStatus(event.type === "load" ? "ready" : "error");
+    };
+
+    // If the script is already cached and loaded, the load event might not fire again.
+    // So, we check the readyState.
+    if (script.readyState === 'complete' || script.readyState === 'loaded') {
+        setStatus('ready');
+    } else {
+        script.addEventListener("load", setStateFromEvent);
+        script.addEventListener("error", setStateFromEvent);
+    }
+    
+
+    return () => {
+      if (script) {
+        script.removeEventListener("load", setStateFromEvent);
+        script.removeEventListener("error", setStateFromEvent);
+      }
+    };
+  }, [url]);
+
+  return status;
+};
+
+
 // --- Local Storage Helper Functions ---
 const LOCAL_STORAGE_KEYS = {
   USER_PROFILE: 'workout_user_profile',
@@ -1904,27 +1957,15 @@ const ProfilePage = ({ onNavigate }) => {
 
 const BarcodeScannerModal = ({ isOpen, onClose, onScanSuccess }) => {
     const [message, setMessage] = useState("Initializing scanner...");
-    const scannerRef = useRef(null); // To hold the scanner instance
-    const readerRef = useRef(null); // To hold the DOM element
+    const scannerRef = useRef(null);
+    const readerId = "barcode-reader";
 
     useEffect(() => {
         if (!isOpen) {
-            if (scannerRef.current && scannerRef.current.isScanning) {
-                scannerRef.current.stop().catch(err => console.error("Error stopping scanner on close:", err));
-            }
             return;
         }
 
-        if (!window.Html5Qrcode) {
-            setMessage("Scanner library not loaded. Please refresh.");
-            return;
-        }
-
-        if (!readerRef.current) {
-            console.error("Reader element ref is not available.");
-            return;
-        }
-
+        // Cleanup function to stop the scanner
         const cleanup = () => {
             if (scannerRef.current && scannerRef.current.isScanning) {
                 scannerRef.current.stop().catch(err => {
@@ -1932,47 +1973,60 @@ const BarcodeScannerModal = ({ isOpen, onClose, onScanSuccess }) => {
                 });
             }
         };
+        
+        // Ensure the library is loaded
+        if (!window.Html5Qrcode) {
+            setMessage("Scanner library not loaded. Please refresh.");
+            return;
+        }
 
-        const html5QrCode = new window.Html5Qrcode(readerRef.current.id);
+        const html5QrCode = new window.Html5Qrcode(readerId);
         scannerRef.current = html5QrCode;
         const config = { fps: 10, qrbox: { width: 250, height: 250 } };
 
         setMessage("Requesting camera access...");
 
-        html5QrCode.start(
-            { facingMode: "environment" },
-            config,
-            async (decodedText, decodedResult) => {
-                cleanup();
-                setMessage(`Fetching data for barcode: ${decodedText}...`);
-                try {
-                    const response = await fetch(`https://world.openfoodfacts.org/api/v0/product/${decodedText}.json`);
-                    const data = await response.json();
-                    if (data.status === 1 && data.product) {
-                        const productName = data.product.product_name || "Unknown Product";
-                        const calories = data.product.nutriments['energy-kcal_100g'] || data.product.nutriments['energy-kcal'] || 0;
-                        onScanSuccess({ name: productName, calories: Math.round(calories) });
-                    } else {
-                        alert("Product not found in the database.");
+        // Delay start slightly to ensure the modal animation is complete
+        const timer = setTimeout(() => {
+            html5QrCode.start(
+                { facingMode: "environment" },
+                config,
+                async (decodedText) => {
+                    cleanup();
+                    setMessage(`Fetching data for barcode: ${decodedText}...`);
+                    try {
+                        const response = await fetch(`https://world.openfoodfacts.org/api/v0/product/${decodedText}.json`);
+                        const data = await response.json();
+                        if (data.status === 1 && data.product) {
+                            const productName = data.product.product_name || "Unknown Product";
+                            const calories = data.product.nutriments['energy-kcal_100g'] || data.product.nutriments['energy-kcal'] || 0;
+                            onScanSuccess({ name: productName, calories: Math.round(calories) });
+                        } else {
+                            alert("Product not found in the database.");
+                            onClose();
+                        }
+                    } catch (apiError) {
+                        console.error("API Error:", apiError);
+                        alert("Could not fetch product data.");
                         onClose();
                     }
-                } catch (apiError) {
-                    console.error("API Error:", apiError);
-                    alert("Could not fetch product data.");
-                    onClose();
+                },
+                (errorMessage) => {
+                    // This callback is called frequently on non-scans, so we don't log anything here.
+                    // Major errors are handled in the .catch block.
                 }
-            },
-            (errorMessage) => {
-                 if (errorMessage.includes("NotAllowedError")) {
-                     setMessage("Camera access denied. Please allow camera access in your browser settings.");
+            ).catch(err => {
+                console.error("Error starting scanner:", err);
+                if (err.name === "NotAllowedError" || err.includes("Permission denied")) {
+                    setMessage("Camera access denied. Please allow camera access in your browser settings and refresh the page.");
+                } else {
+                    setMessage("Could not start camera. It might be in use by another app or is not available.");
                 }
-            }
-        ).catch(err => {
-            console.error("Error starting scanner:", err);
-            setMessage("Could not start camera. Please check permissions and ensure your camera is not in use by another app.");
-        });
+            });
+        }, 300);
 
         return () => {
+            clearTimeout(timer);
             cleanup();
         };
 
@@ -1984,8 +2038,8 @@ const BarcodeScannerModal = ({ isOpen, onClose, onScanSuccess }) => {
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4">
             <div className="bg-white rounded-lg p-6 w-full max-w-md">
                 <h3 className="text-xl font-bold mb-4 text-center">Scan Barcode</h3>
-                <div id="reader" ref={readerRef} style={{ width: '100%', minHeight: '300px', border: '1px solid #eee' }}></div>
-                <p className="text-center text-gray-600 mt-4">{message}</p>
+                <div id={readerId} style={{ width: '100%', minHeight: '300px', border: '1px solid #eee' }}></div>
+                <p className="text-center text-gray-600 mt-4 h-10">{message}</p>
                 <div className="text-center mt-6">
                     <Button onClick={onClose} variant="secondary">Cancel</Button>
                 </div>
@@ -1995,7 +2049,7 @@ const BarcodeScannerModal = ({ isOpen, onClose, onScanSuccess }) => {
 };
 
 
-const CalorieCounter = () => {
+const CalorieCounter = ({ scannerScriptStatus }) => {
     const [dailyLog, setDailyLog] = useState({ goal: 2000, foods: [] });
     const [newFood, setNewFood] = useState({ name: '', calories: '' });
     const [suggestions, setSuggestions] = useState([]);
@@ -2142,6 +2196,8 @@ const CalorieCounter = () => {
         newDate.setDate(newDate.getDate() + amount);
         setCurrentDate(newDate);
     };
+    
+    const isScannerReady = scannerScriptStatus === 'ready';
 
     return (
         <div className="p-4 max-w-lg mx-auto">
@@ -2198,7 +2254,7 @@ const CalorieCounter = () => {
                                 onChange={handleFoodNameChange}
                                 className="w-full p-2 border rounded-md"
                             />
-                            <button type="button" onClick={() => setIsScannerOpen(true)} className="p-2 rounded-full bg-gray-200 hover:bg-gray-300">
+                            <button type="button" onClick={() => setIsScannerOpen(true)} className="p-2 rounded-full bg-gray-200 hover:bg-gray-300 disabled:opacity-50" disabled={!isScannerReady} title={isScannerReady ? "Scan Barcode" : "Scanner loading..."}>
                                 <Barcode size={20} />
                             </button>
                         </div>
@@ -2254,7 +2310,7 @@ const CalorieCounter = () => {
                 </div>
             </Card>
             {isCalendarOpen && <CalendarModal onClose={() => setIsCalendarOpen(false)} onDateSelect={(date) => { setCurrentDate(date); setIsCalendarOpen(false); }} />}
-            <BarcodeScannerModal isOpen={isScannerOpen} onClose={() => setIsScannerOpen(false)} onScanSuccess={handleScanSuccess} />
+            {isScannerReady && <BarcodeScannerModal isOpen={isScannerOpen} onClose={() => setIsScannerOpen(false)} onScanSuccess={handleScanSuccess} />}
         </div>
     );
 };
@@ -2321,6 +2377,7 @@ export default function App() {
     const [loading, setLoading] = useState(true);
     const [appState, setAppState] = useState('loading');
     const [navParams, setNavParams] = useState({});
+    const scannerScriptStatus = useScript("https://unpkg.com/html5-qrcode");
 
     useEffect(() => {
         const profile = getFromStorage(LOCAL_STORAGE_KEYS.USER_PROFILE);
@@ -2369,7 +2426,7 @@ export default function App() {
             case 'analytics':
                 return <WorkoutAnalytics />;
             case 'calorieCounter':
-                return <CalorieCounter />;
+                return <CalorieCounter scannerScriptStatus={scannerScriptStatus} />;
             case 'profile':
                  return <ProfilePage onNavigate={handleNavigation} />;
             default:
@@ -2411,7 +2468,6 @@ export default function App() {
 
     return (
         <div className="bg-gray-50 min-h-screen font-['Poppins']">
-            <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
             <style>
                 {`
                     @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
