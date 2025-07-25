@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { ArrowLeft, Dumbbell, Calendar, Target, TrendingUp, Image as ImageIcon, CheckCircle, XCircle, Clock, Plus, Trash2, Edit, Save, BarChart2, Search, Undo, Lock, LayoutGrid, User, Camera, Flame, Minus, ChevronLeft, ChevronRight, Barcode, AlertTriangle, RefreshCw, Info } from 'lucide-react';
 
 // --- App Version ---
-const LATEST_APP_VERSION = '27.4';
+const LATEST_APP_VERSION = '27.6';
 
 // --- Custom Hook for loading external scripts ---
 const useScript = (url) => {
@@ -1513,24 +1513,24 @@ const DayDetail = ({ logId, onBack, onNavigate }) => {
                         
                         {!ex.skipped && (
                             <>
-                                <div className="grid grid-cols-11 gap-x-2 text-center mb-2 px-2 text-sm font-semibold text-gray-500">
+                                <div className="grid grid-cols-12 gap-x-2 text-center mb-2 px-2 text-sm font-semibold text-gray-500">
                                     <div className="col-span-1">Set</div>
-                                    <div className="col-span-4">Weight (kg)</div>
-                                    <div className="col-span-4">Reps</div>
-                                    <div className="col-span-2"></div>
+                                    <div className="col-span-5">Weight (kg)</div>
+                                    <div className="col-span-5">Reps</div>
+                                    <div className="col-span-1"></div>
                                 </div>
 
                                 <div className="space-y-2">
                                     {ex.sets.map((set, setIndex) => (
-                                        <div key={setIndex} className="grid grid-cols-11 gap-x-2 items-center">
+                                        <div key={setIndex} className="grid grid-cols-12 gap-x-2 items-center">
                                             <div className="col-span-1 text-center font-medium">{setIndex + 1}</div>
-                                            <div className="col-span-4">
+                                            <div className="col-span-5">
                                                 <NumberStepper value={set.weight} onChange={(newWeight) => handleSetChange(exerciseIndex, setIndex, 'weight', newWeight)} step={2.5} />
                                             </div>
-                                            <div className="col-span-4">
+                                            <div className="col-span-5">
                                                 <NumberStepper value={set.reps} onChange={(newReps) => handleSetChange(exerciseIndex, setIndex, 'reps', newReps)} step={1} />
                                             </div>
-                                            <div className="col-span-2 text-right">
+                                            <div className="col-span-1 text-right">
                                                 <button onClick={() => removeSet(exerciseIndex, setIndex)} className="text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-100">
                                                     <Trash2 size={18} />
                                                 </button>
@@ -2051,19 +2051,31 @@ const ProfilePage = ({ onNavigate }) => {
 
             <Card className="mt-6">
                 <h3 className="text-xl font-bold mb-4">Your Stats</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="text-center p-2 rounded-lg bg-gray-100">
-                        <label className="text-sm font-medium text-gray-500">Weight (kg)</label>
-                        <NumberStepper value={Math.round(profile.weight)} onChange={(val) => handleProfileUpdate('weight', val)} step={1} min={30} />
+                <div className="space-y-4">
+                    <div className="flex justify-between items-center bg-gray-50 p-3 rounded-lg">
+                        <div>
+                            <p className="text-sm text-gray-500">Weight</p>
+                            <p className="text-2xl font-semibold text-gray-800">{Math.round(profile.weight)} <span className="text-base font-normal">kg</span></p>
+                        </div>
+                        <div className="w-32">
+                             <NumberStepper value={Math.round(profile.weight)} onChange={(val) => handleProfileUpdate('weight', val)} step={1} min={30} />
+                        </div>
                     </div>
-                    <div className="text-center p-2 rounded-lg bg-gray-100">
-                        <label className="text-sm font-medium text-gray-500">Height (cm)</label>
-                        <NumberStepper value={Math.round(profile.height)} onChange={(val) => handleProfileUpdate('height', val)} step={1} min={120} />
+                    <div className="flex justify-between items-center bg-gray-50 p-3 rounded-lg">
+                        <div>
+                            <p className="text-sm text-gray-500">Height</p>
+                            <p className="text-2xl font-semibold text-gray-800">{Math.round(profile.height)} <span className="text-base font-normal">cm</span></p>
+                        </div>
+                        <div className="w-32">
+                             <NumberStepper value={Math.round(profile.height)} onChange={(val) => handleProfileUpdate('height', val)} step={1} min={120} />
+                        </div>
                     </div>
-                    <div className={`text-center p-4 rounded-lg text-white ${bmiData.color}`}>
-                        <label className="text-sm font-medium opacity-80">BMI</label>
-                        <p className="text-3xl font-bold">{bmiData.value}</p>
-                        <p className="text-xs font-semibold">{bmiData.status}</p>
+                    <div className={`p-4 rounded-lg text-white ${bmiData.color} flex justify-between items-center`}>
+                        <div>
+                            <p className="font-bold">Your BMI</p>
+                            <p className="text-xs">{bmiData.status}</p>
+                        </div>
+                        <p className="text-4xl font-bold">{bmiData.value}</p>
                     </div>
                 </div>
             </Card>
