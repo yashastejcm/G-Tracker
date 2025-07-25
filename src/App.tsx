@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { ArrowLeft, Dumbbell, Calendar, Target, TrendingUp, Image as ImageIcon, CheckCircle, XCircle, Clock, Plus, Trash2, Edit, Save, BarChart2, Search, Undo, Lock, LayoutGrid, User, Camera, Flame, Minus, ChevronLeft, ChevronRight, Barcode, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Dumbbell, Calendar, Target, TrendingUp, Image as ImageIcon, CheckCircle, XCircle, Clock, Plus, Trash2, Edit, Save, BarChart2, Search, Undo, Lock, LayoutGrid, User, Camera, Flame, Minus, ChevronLeft, ChevronRight, Barcode, AlertTriangle, RefreshCw, Info } from 'lucide-react';
+
+// --- App Version ---
+const LATEST_APP_VERSION = '27.3';
 
 // --- Custom Hook for loading external scripts ---
 const useScript = (url) => {
@@ -60,7 +63,8 @@ const LOCAL_STORAGE_KEYS = {
   EXERCISE_PROGRESS: 'exercise_progress',
   EXERCISE_MEDIA: 'exercise_media',
   CALORIE_LOGS: 'calorie_logs',
-  CUSTOM_FOOD_LIST: 'workout_custom_food_list'
+  CUSTOM_FOOD_LIST: 'workout_custom_food_list',
+  APP_VERSION: 'app_version'
 };
 
 const getFromStorage = (key) => {
@@ -2064,7 +2068,7 @@ const BarcodeScannerModal = ({ isOpen, onClose, onScanSuccess }) => {
                 html5QrCode.start(
                     { facingMode: "environment" },
                     config,
-                    (decodedText) => {
+                    async (decodedText) => {
                         setMessage(`Fetching data for barcode: ${decodedText}...`);
                         // The success callback will trigger the cleanup via the isOpen change
                         fetch(`https://world.openfoodfacts.org/api/v0/product/${decodedText}.json`)
@@ -2504,9 +2508,15 @@ export default function App() {
     const [loading, setLoading] = useState(true);
     const [appState, setAppState] = useState('loading');
     const [navParams, setNavParams] = useState({});
+    const [showUpdate, setShowUpdate] = useState(false);
     const scannerScriptStatus = useScript("https://unpkg.com/html5-qrcode");
 
     useEffect(() => {
+        const storedVersion = getFromStorage(LOCAL_STORAGE_KEYS.APP_VERSION);
+        if (storedVersion !== LATEST_APP_VERSION) {
+            setShowUpdate(true);
+        }
+
         const profile = getFromStorage(LOCAL_STORAGE_KEYS.USER_PROFILE);
         const workoutPlan = getFromStorage(LOCAL_STORAGE_KEYS.WORKOUT_PLAN);
         
@@ -2529,6 +2539,34 @@ export default function App() {
         setNavParams(params);
         setAppState(screen);
     };
+    
+    const handleUpdate = () => {
+        saveToStorage(LOCAL_STORAGE_KEYS.APP_VERSION, LATEST_APP_VERSION);
+        window.location.reload();
+    };
+
+    const handleLater = () => {
+        saveToStorage(LOCAL_STORAGE_KEYS.APP_VERSION, LATEST_APP_VERSION);
+        setShowUpdate(false);
+    };
+
+    const UpdateNotification = () => (
+        <div className="fixed bottom-24 right-4 z-50">
+            <Card className="shadow-lg">
+                <div className="flex items-center">
+                    <RefreshCw className="text-blue-500 mr-4 animate-spin"/>
+                    <div>
+                        <h4 className="font-bold">New Version Available!</h4>
+                        <p className="text-sm text-gray-600">Update to get the latest features.</p>
+                        <div className="flex gap-2 mt-2">
+                            <button onClick={handleLater} className="text-sm font-semibold text-gray-500 px-3 py-1 rounded-md hover:bg-gray-100">Later</button>
+                            <button onClick={handleUpdate} className="text-sm font-semibold text-white bg-blue-500 px-3 py-1 rounded-md hover:bg-blue-600">Update Now</button>
+                        </div>
+                    </div>
+                </div>
+            </Card>
+        </div>
+    );
 
     const renderContent = () => {
         if (loading || appState === 'loading') {
@@ -2617,6 +2655,7 @@ export default function App() {
             <main className={`pb-28 transition-all duration-300 ${!showNav ? 'pt-0' : 'pt-4'}`}>
                 {renderContent()}
             </main>
+            {showUpdate && <UpdateNotification />}
             {showNav && (
                 <div className="fixed bottom-4 left-1/2 -translate-x-1/2 w-11/12 max-w-sm">
                     <div className="bg-[#494358] rounded-full p-2 flex items-center justify-around">
