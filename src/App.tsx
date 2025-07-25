@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { ArrowLeft, Dumbbell, Calendar, Target, TrendingUp, Image as ImageIcon, CheckCircle, XCircle, Clock, Plus, Trash2, Edit, Save, BarChart2, Search, Undo, Lock, LayoutGrid, User, Camera, Flame, Minus, ChevronLeft, ChevronRight, Barcode } from 'lucide-react';
+import { ArrowLeft, Dumbbell, Calendar, Target, TrendingUp, Image as ImageIcon, CheckCircle, XCircle, Clock, Plus, Trash2, Edit, Save, BarChart2, Search, Undo, Lock, LayoutGrid, User, Camera, Flame, Minus, ChevronLeft, ChevronRight, Barcode, AlertTriangle } from 'lucide-react';
 
 // --- Custom Hook for loading external scripts ---
 const useScript = (url) => {
@@ -32,8 +32,6 @@ const useScript = (url) => {
       setStatus(event.type === "load" ? "ready" : "error");
     };
 
-    // If the script is already cached and loaded, the load event might not fire again.
-    // So, we check the readyState.
     if (script.readyState === 'complete' || script.readyState === 'loaded') {
         setStatus('ready');
     } else {
@@ -201,7 +199,6 @@ const generateWorkoutPlan = (level, days, excludeLegs = false) => {
         const dayTemplate = planTemplate[dayKey];
         let exercises = getExercisesByMuscles(dayTemplate.muscles, excludeLegs);
 
-        // If excluding legs removes all exercises for a day, make it a rest day.
         if (dayTemplate.muscles.length > 0 && exercises.length === 0) {
              formattedPlan[dayKey] = {
                  name: 'Rest Day',
@@ -1095,7 +1092,6 @@ const ScheduleCreator = ({ onScheduleCreated }) => {
     const saveSchedule = () => {
         saveToStorage(LOCAL_STORAGE_KEYS.WORKOUT_PLAN, workoutPlan);
 
-        // Clear existing logs and create new ones
         const logs = [];
         let dayCounter = 0;
         
@@ -1233,11 +1229,16 @@ const HomeScreen = ({ onNavigate }) => {
     };
 
     const timelineDays = useMemo(() => {
-        const sortedLogs = [...logs].sort((a, b) => parseInt(a.day) - parseInt(b.day));
+        const workoutLogs = logs.filter(log => log.exercises && log.exercises.length > 0);
+        const sortedLogs = workoutLogs.sort((a, b) => new Date(a.date) - new Date(b.date));
+        
         const activeLog = sortedLogs.find(l => !l.completed);
+        let workoutDayCounter = 1;
 
-        return sortedLogs.map(log => {
+        return logs.map(log => {
             const isRestDay = !log.exercises || log.exercises.length === 0;
+            if(isRestDay) return null; // Skip rest days from timeline display
+
             const name = getDayName(log);
             
             let status = 'locked';
@@ -1247,15 +1248,17 @@ const HomeScreen = ({ onNavigate }) => {
                 status = 'current';
             }
             
-            return {
-                dayKey: `Day ${log.day}`,
+            const dayInfo = {
+                dayKey: `Day ${workoutDayCounter}`,
                 name,
                 isRestDay,
                 status,
                 logId: log.id,
                 date: log.date,
             };
-        });
+            workoutDayCounter++;
+            return dayInfo;
+        }).filter(Boolean); // Filter out null (rest day) entries
     }, [logs]);
 
     useEffect(() => {
@@ -1298,7 +1301,7 @@ const HomeScreen = ({ onNavigate }) => {
 
                     if (day.status === 'current') {
                         return (
-                            <div ref={cardRef} key={day.dayKey} className="bg-[#494358] text-white rounded-xl p-4 flex justify-between items-center">
+                            <div ref={cardRef} key={day.logId} className="bg-[#494358] text-white rounded-xl p-4 flex justify-between items-center">
                                 <div>
                                     <h2 className="font-bold text-2xl">{day.dayKey}</h2>
                                     <p className="opacity-90">{day.name}</p>
@@ -1315,7 +1318,7 @@ const HomeScreen = ({ onNavigate }) => {
                     
                     const isClickable = day.status === 'completed' && day.logId;
                     return (
-                        <div ref={cardRef} key={day.dayKey} onClick={() => isClickable && onNavigate('dayDetail', { logId: day.logId })} className={`bg-white rounded-xl p-4 flex justify-between items-center border border-gray-200 ${day.status === 'completed' ? 'opacity-50' : ''} ${isClickable ? 'cursor-pointer' : 'cursor-default'}`}>
+                        <div ref={cardRef} key={day.logId} onClick={() => isClickable && onNavigate('dayDetail', { logId: day.logId })} className={`bg-white rounded-xl p-4 flex justify-between items-center border border-gray-200 ${day.status === 'completed' ? 'opacity-50' : ''} ${isClickable ? 'cursor-pointer' : 'cursor-default'}`}>
                             <div>
                                 <h2 className="font-bold text-2xl">{day.dayKey}</h2>
                                 <p className="text-gray-500">{day.name}</p>
@@ -1508,7 +1511,7 @@ const DayDetail = ({ logId, onBack, onNavigate }) => {
                         
                         {!ex.skipped && (
                             <>
-                                <div className="grid grid-cols-12 gap-2 mb-2 px-2 text-sm font-semibold text-gray-500">
+                                <div className="grid grid-cols-12 gap-x-2 mb-2 px-2 text-sm font-semibold text-gray-500">
                                     <div className="col-span-2">Set</div>
                                     <div className="col-span-4">Weight (kg)</div>
                                     <div className="col-span-4">Reps</div>
@@ -1517,7 +1520,7 @@ const DayDetail = ({ logId, onBack, onNavigate }) => {
 
                                 <div className="space-y-2">
                                     {ex.sets.map((set, setIndex) => (
-                                        <div key={setIndex} className="grid grid-cols-12 gap-2 items-center">
+                                        <div key={setIndex} className="grid grid-cols-12 gap-x-2 items-center">
                                             <div className="col-span-2 text-center font-medium">{setIndex + 1}</div>
                                             <div className="col-span-4">
                                                 <NumberStepper value={set.weight} onChange={(newWeight) => handleSetChange(exerciseIndex, setIndex, 'weight', newWeight)} step={2.5} />
@@ -1806,6 +1809,8 @@ const ProfilePage = ({ onNavigate }) => {
     const [profile, setProfile] = useState(null);
     const [isEditing, setIsEditing] = useState(false);
     const [name, setName] = useState('');
+    const [resetStep, setResetStep] = useState(0);
+    const [resetInput, setResetInput] = useState('');
     const importFileRef = useRef(null);
 
     useEffect(() => {
@@ -1880,12 +1885,62 @@ const ProfilePage = ({ onNavigate }) => {
         reader.readAsText(file);
     };
 
+    const handleResetTimeline = () => {
+        const logs = getFromStorage(LOCAL_STORAGE_KEYS.LOGS) || [];
+        const resetLogs = logs.map(log => ({ ...log, completed: false }));
+        saveToStorage(LOCAL_STORAGE_KEYS.LOGS, resetLogs);
+        setResetStep(0);
+        setResetInput('');
+        alert("Workout timeline has been reset!");
+        onNavigate('home');
+    };
+
+    const renderResetModal = () => {
+        if (resetStep === 0) return null;
+
+        return (
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4">
+                <Card className="w-full max-w-sm">
+                    <div className="text-center">
+                        <AlertTriangle className="mx-auto h-12 w-12 text-red-500" />
+                        <h3 className="text-lg font-medium text-gray-900 mt-2">Reset Timeline</h3>
+                        {resetStep === 1 && (
+                            <>
+                                <p className="text-sm text-gray-500 mt-2">Are you sure you want to reset your workout timeline? This will mark all your workouts as incomplete and restart your progress from Day 1.</p>
+                                <div className="mt-4 flex justify-center gap-4">
+                                    <Button onClick={() => setResetStep(0)} variant="secondary">Cancel</Button>
+                                    <Button onClick={() => setResetStep(2)} variant="danger">Yes, Reset</Button>
+                                </div>
+                            </>
+                        )}
+                        {resetStep === 2 && (
+                             <>
+                                <p className="text-sm text-gray-500 mt-2">This action cannot be undone. To confirm, please type "RESET" in the box below.</p>
+                                <input 
+                                    type="text"
+                                    value={resetInput}
+                                    onChange={(e) => setResetInput(e.target.value)}
+                                    className="w-full p-2 border rounded-md mt-4 text-center"
+                                />
+                                <div className="mt-4 flex justify-center gap-4">
+                                     <Button onClick={() => setResetStep(0)} variant="secondary">Cancel</Button>
+                                     <Button onClick={handleResetTimeline} variant="danger" disabled={resetInput !== 'RESET'}>Confirm Reset</Button>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </Card>
+            </div>
+        );
+    };
+
     if (!profile) {
         return <div className="p-4">Loading profile...</div>;
     }
 
     return (
         <div className="p-4 max-w-lg mx-auto">
+            {renderResetModal()}
             <div className="text-left py-8">
                 <h1 className="text-5xl font-light">Your</h1>
                 <h1 className="text-5xl font-semibold">Profile</h1>
@@ -1928,6 +1983,11 @@ const ProfilePage = ({ onNavigate }) => {
                 <Button onClick={() => onNavigate('schedule')} variant="secondary" className="w-full">
                     Customize Your 7-Day Plan
                 </Button>
+                 <div className="mt-4">
+                    <Button onClick={() => setResetStep(1)} variant="danger" className="w-full">
+                        Reset Timeline
+                    </Button>
+                </div>
             </Card>
 
             <Card className="mt-6">
@@ -1965,7 +2025,6 @@ const BarcodeScannerModal = ({ isOpen, onClose, onScanSuccess }) => {
             return;
         }
 
-        // Cleanup function to stop the scanner
         const cleanup = () => {
             if (scannerRef.current && scannerRef.current.isScanning) {
                 scannerRef.current.stop().catch(err => {
@@ -1974,7 +2033,6 @@ const BarcodeScannerModal = ({ isOpen, onClose, onScanSuccess }) => {
             }
         };
         
-        // Ensure the library is loaded
         if (!window.Html5Qrcode) {
             setMessage("Scanner library not loaded. Please refresh.");
             return;
@@ -1986,7 +2044,6 @@ const BarcodeScannerModal = ({ isOpen, onClose, onScanSuccess }) => {
 
         setMessage("Requesting camera access...");
 
-        // Delay start slightly to ensure the modal animation is complete
         const timer = setTimeout(() => {
             html5QrCode.start(
                 { facingMode: "environment" },
@@ -2011,10 +2068,7 @@ const BarcodeScannerModal = ({ isOpen, onClose, onScanSuccess }) => {
                         onClose();
                     }
                 },
-                (errorMessage) => {
-                    // This callback is called frequently on non-scans, so we don't log anything here.
-                    // Major errors are handled in the .catch block.
-                }
+                (errorMessage) => {}
             ).catch(err => {
                 console.error("Error starting scanner:", err);
                 if (err.name === "NotAllowedError" || (typeof err === 'string' && err.includes("Permission denied"))) {
@@ -2197,6 +2251,12 @@ const CalorieCounter = ({ scannerScriptStatus }) => {
         setNewFood(prevFood => ({ ...prevFood, calories: String(newCalories) }));
     };
 
+    const getServingStep = () => {
+        if(scanData && scanData.servingSize > 100) return 10;
+        if(scanData && scanData.servingSize > 20) return 5;
+        return 1;
+    };
+
     const totalCalories = useMemo(() => {
         return dailyLog.foods.reduce((sum, food) => sum + parseInt(food.calories, 10), 0);
     }, [dailyLog.foods]);
@@ -2257,7 +2317,7 @@ const CalorieCounter = ({ scannerScriptStatus }) => {
 
             <Card>
                 <h3 className="text-xl font-bold mb-4">Log Food</h3>
-                <form onSubmit={handleAddFood} className="flex flex-col gap-2 mb-4">
+                <form onSubmit={handleAddFood} className="flex flex-col gap-4">
                     <div className="relative" ref={suggestionBoxRef}>
                         <div className="flex items-center gap-2">
                             <input 
@@ -2300,7 +2360,7 @@ const CalorieCounter = ({ scannerScriptStatus }) => {
                             <NumberStepper 
                                 value={scanData.servingSize}
                                 onChange={handleServingSizeChange}
-                                step={1}
+                                step={getServingStep()}
                                 min={1}
                             />
                             <p className="text-xs text-center text-gray-400 mt-1">{scanData.baseCalories} kcal per 100g</p>
@@ -2308,14 +2368,15 @@ const CalorieCounter = ({ scannerScriptStatus }) => {
                     )}
 
                     <div className="flex gap-2 items-center">
-                         <input 
-                            type="number"
-                            placeholder="Calories"
-                            value={newFood.calories}
-                            onChange={(e) => setNewFood({...newFood, calories: e.target.value})}
-                            className="w-full p-2 border rounded-md text-center text-lg font-semibold"
-                            disabled={!!scanData}
-                        />
+                         <div className="flex-grow">
+                             <NumberStepper 
+                                value={parseInt(newFood.calories) || 0}
+                                onChange={(cals) => setNewFood({...newFood, calories: String(cals)})}
+                                step={scanData ? 1 : 10}
+                                min={0}
+                                disabled={!!scanData}
+                            />
+                         </div>
                         <Button type="submit" className="px-5">+</Button>
                     </div>
                 </form>
