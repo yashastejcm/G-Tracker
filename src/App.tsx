@@ -281,18 +281,18 @@ const NumberStepper = ({ value, onChange, step, min = 0, max = 1000, disabled = 
     };
 
     return (
-        <div className="flex items-center justify-center gap-2">
-            <button type="button" onClick={handleDecrement} className="p-2 rounded-full bg-gray-200 hover:bg-gray-300 transition-colors disabled:opacity-50" disabled={disabled}>
+        <div className="flex items-center justify-center w-full bg-gray-100 rounded-full p-0.5">
+            <button type="button" onClick={handleDecrement} className="p-2 rounded-full hover:bg-gray-200 transition-colors disabled:opacity-50 flex-shrink-0">
                 <Minus size={16} />
             </button>
             <input
                 type="number"
                 value={value}
                 onChange={handleInputChange}
-                className="text-lg font-semibold w-14 text-center bg-transparent border-none focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:opacity-50"
+                className="text-lg font-semibold w-full min-w-0 text-center bg-transparent border-none focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:bg-transparent"
                 disabled={disabled}
             />
-            <button type="button" onClick={handleIncrement} className="p-2 rounded-full bg-gray-200 hover:bg-gray-300 transition-colors disabled:opacity-50" disabled={disabled}>
+            <button type="button" onClick={handleIncrement} className="p-2 rounded-full hover:bg-gray-200 transition-colors disabled:opacity-50 flex-shrink-0">
                 <Plus size={16} />
             </button>
         </div>
@@ -1509,8 +1509,8 @@ const DayDetail = ({ logId, onBack, onNavigate }) => {
                         
                         {!ex.skipped && (
                             <>
-                                <div className="grid grid-cols-12 gap-x-1 mb-2 px-2 text-sm font-semibold text-gray-500">
-                                    <div className="col-span-2">Set</div>
+                                <div className="grid grid-cols-11 gap-x-2 text-center mb-2 px-2 text-sm font-semibold text-gray-500">
+                                    <div className="col-span-1">Set</div>
                                     <div className="col-span-4">Weight (kg)</div>
                                     <div className="col-span-4">Reps</div>
                                     <div className="col-span-2"></div>
@@ -1518,8 +1518,8 @@ const DayDetail = ({ logId, onBack, onNavigate }) => {
 
                                 <div className="space-y-2">
                                     {ex.sets.map((set, setIndex) => (
-                                        <div key={setIndex} className="grid grid-cols-12 gap-x-1 items-center">
-                                            <div className="col-span-2 text-center font-medium">{setIndex + 1}</div>
+                                        <div key={setIndex} className="grid grid-cols-11 gap-x-2 items-center">
+                                            <div className="col-span-1 text-center font-medium">{setIndex + 1}</div>
                                             <div className="col-span-4">
                                                 <NumberStepper value={set.weight} onChange={(newWeight) => handleSetChange(exerciseIndex, setIndex, 'weight', newWeight)} step={2.5} />
                                             </div>
@@ -2403,7 +2403,9 @@ const CalorieCounter = ({ scannerScriptStatus }) => {
                                 disabled={!!scanData}
                             />
                          </div>
-                        <Button type="submit" className="px-5 py-3.5"><Plus size={20}/></Button>
+                        <button type="submit" className="bg-[#494358] text-white rounded-full h-12 w-12 flex-shrink-0 flex items-center justify-center hover:bg-[#5A556B] transition-transform transform hover:scale-105 active:scale-95">
+                            <Plus size={24}/>
+                        </button>
                     </div>
                 </form>
                 <div>
