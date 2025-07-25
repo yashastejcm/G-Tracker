@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { ArrowLeft, Dumbbell, Calendar, Target, TrendingUp, Image as ImageIcon, CheckCircle, XCircle, Clock, Plus, Trash2, Edit, Save, BarChart2, Search, Undo, Lock, LayoutGrid, User, Camera, Flame, Minus, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Dumbbell, Calendar, Target, TrendingUp, Image as ImageIcon, CheckCircle, XCircle, Clock, Plus, Trash2, Edit, Save, BarChart2, Search, Undo, Lock, LayoutGrid, User, Camera, Flame, Minus, ChevronLeft, ChevronRight, Barcode } from 'lucide-react';
 
 // --- Local Storage Helper Functions ---
 const LOCAL_STORAGE_KEYS = {
@@ -151,8 +151,8 @@ const generateWorkoutPlan = (level, days, excludeLegs = false) => {
         // If excluding legs removes all exercises for a day, make it a rest day.
         if (dayTemplate.muscles.length > 0 && exercises.length === 0) {
              formattedPlan[dayKey] = {
-                name: 'Rest Day',
-                exercises: []
+                 name: 'Rest Day',
+                 exercises: []
             };
         } else {
             formattedPlan[dayKey] = {
@@ -632,7 +632,7 @@ const HeightSelector = ({ onNext, onBack, profileData, setProfileData }) => {
                 </div>
                 <div className="w-full max-w-sm bg-[#D6EBEB] p-6 rounded-3xl">
                     <div className="text-center mb-4">
-                         <span className="text-8xl font-bold text-[#262642]">{displayHeight}</span>
+                       <span className="text-8xl font-bold text-[#262642]">{displayHeight}</span>
                     </div>
                      <RulerSlider
                         min={heightSliderProps.min}
@@ -1902,6 +1902,89 @@ const ProfilePage = ({ onNavigate }) => {
     );
 };
 
+const BarcodeScannerModal = ({ isOpen, onClose, onScanSuccess }) => {
+    const [message, setMessage] = useState("Scanning for barcode...");
+    const scannerRef = useRef(null);
+
+    useEffect(() => {
+        if (isOpen && window.Html5Qrcode) {
+            // Ensure the scanner element is in the DOM
+            setTimeout(() => {
+                const html5QrCode = new window.Html5Qrcode("reader");
+                scannerRef.current = html5QrCode;
+                const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+                const startScanner = async () => {
+                    try {
+                        await html5QrCode.start(
+                            { facingMode: "environment" },
+                            config,
+                            async (decodedText, decodedResult) => {
+                                // Stop scanning
+                                if (scannerRef.current && scannerRef.current.isScanning) {
+                                    await scannerRef.current.stop();
+                                }
+                                
+                                setMessage(`Fetching data for barcode: ${decodedText}...`);
+                                
+                                // Fetch data from Open Food Facts API
+                                try {
+                                    const response = await fetch(`https://world.openfoodfacts.org/api/v0/product/${decodedText}.json`);
+                                    const data = await response.json();
+
+                                    if (data.status === 1) {
+                                        const productName = data.product.product_name || "Unknown Product";
+                                        const calories = data.product.nutriments['energy-kcal_100g'] || data.product.nutriments['energy-kcal'] || 0;
+                                        onScanSuccess({ name: productName, calories: Math.round(calories) });
+                                    } else {
+                                        alert("Product not found in the database.");
+                                        onClose();
+                                    }
+                                } catch (apiError) {
+                                    console.error("API Error:", apiError);
+                                    alert("Could not fetch product data.");
+                                    onClose();
+                                }
+                            },
+                            (errorMessage) => {
+                                // handle scan error, usually you can ignore this
+                            }
+                        );
+                    } catch (err) {
+                        console.error("Error starting scanner:", err);
+                        setMessage("Could not start camera. Please check permissions.");
+                    }
+                };
+
+                startScanner();
+            }, 100); // Small delay to ensure DOM is ready
+
+        }
+
+        return () => {
+            if (scannerRef.current && scannerRef.current.isScanning) {
+                scannerRef.current.stop().catch(err => console.error("Error stopping scanner:", err));
+            }
+        };
+    }, [isOpen, onScanSuccess, onClose]);
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+                <h3 className="text-xl font-bold mb-4 text-center">Scan Barcode</h3>
+                <div id="reader" style={{ width: '100%', height: '300px' }}></div>
+                <p className="text-center text-gray-600 mt-4">{message}</p>
+                <div className="text-center mt-6">
+                    <Button onClick={onClose} variant="secondary">Cancel</Button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+
 const CalorieCounter = () => {
     const [dailyLog, setDailyLog] = useState({ goal: 2000, foods: [] });
     const [newFood, setNewFood] = useState({ name: '', calories: '' });
@@ -1910,6 +1993,7 @@ const CalorieCounter = () => {
     const [customFoods, setCustomFoods] = useState([]);
     const [currentDate, setCurrentDate] = useState(new Date());
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+    const [isScannerOpen, setIsScannerOpen] = useState(false);
     const suggestionBoxRef = useRef(null);
 
     const dateToString = (date) => date.toISOString().split('T')[0];
@@ -2031,6 +2115,11 @@ const CalorieCounter = () => {
         setSuggestions(prev => prev.filter(s => s !== foodToDelete));
     };
 
+    const handleScanSuccess = (scannedData) => {
+        setNewFood({ name: scannedData.name, calories: String(scannedData.calories) });
+        setIsScannerOpen(false);
+    };
+
     const totalCalories = useMemo(() => {
         return dailyLog.foods.reduce((sum, food) => sum + parseInt(food.calories, 10), 0);
     }, [dailyLog.foods]);
@@ -2091,13 +2180,18 @@ const CalorieCounter = () => {
                 <h3 className="text-xl font-bold mb-4">Log Food</h3>
                 <form onSubmit={handleAddFood} className="flex flex-col gap-2 mb-4">
                     <div className="relative" ref={suggestionBoxRef}>
-                        <input 
-                            type="text"
-                            placeholder="Food name"
-                            value={newFood.name}
-                            onChange={handleFoodNameChange}
-                            className="w-full p-2 border rounded-md"
-                        />
+                        <div className="flex items-center gap-2">
+                            <input 
+                                type="text"
+                                placeholder="Food name"
+                                value={newFood.name}
+                                onChange={handleFoodNameChange}
+                                className="w-full p-2 border rounded-md"
+                            />
+                            <button type="button" onClick={() => setIsScannerOpen(true)} className="p-2 rounded-full bg-gray-200 hover:bg-gray-300">
+                                <Barcode size={20} />
+                            </button>
+                        </div>
                         {suggestions.length > 0 && (
                             <ul className="absolute z-10 w-full bg-white border rounded-md mt-1 max-h-40 overflow-y-auto">
                                 {suggestions.map((suggestion, index) => (
@@ -2150,6 +2244,7 @@ const CalorieCounter = () => {
                 </div>
             </Card>
             {isCalendarOpen && <CalendarModal onClose={() => setIsCalendarOpen(false)} onDateSelect={(date) => { setCurrentDate(date); setIsCalendarOpen(false); }} />}
+            <BarcodeScannerModal isOpen={isScannerOpen} onClose={() => setIsScannerOpen(false)} onScanSuccess={handleScanSuccess} />
         </div>
     );
 };
@@ -2306,6 +2401,7 @@ export default function App() {
 
     return (
         <div className="bg-gray-50 min-h-screen font-['Poppins']">
+            <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
             <style>
                 {`
                     @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
