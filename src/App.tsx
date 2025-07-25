@@ -1,100 +1,36 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { ArrowLeft, Dumbbell, Calendar, Target, TrendingUp, Image as ImageIcon, CheckCircle, XCircle, Clock, Plus, Trash2, Edit, Save, BarChart2, Search, Undo, Lock, LayoutGrid, User, Camera, Flame, Minus, ChevronLeft, ChevronRight } from 'lucide-react';
 
-// --- Firebase Imports ---
-import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from 'firebase/auth';
-import { getFirestore, doc, getDoc, setDoc, addDoc, collection, getDocs, onSnapshot, query, where, deleteDoc, updateDoc } from 'firebase/firestore';
-import { setLogLevel } from 'firebase/firestore';
-
-
-// --- Firebase Configuration and Initialization ---
-// These will be populated by the environment
-const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-setLogLevel('debug');
-
-
-// --- Firestore Helper Functions ---
-const FIRESTORE_COLLECTIONS = {
-    USER_PROFILE: 'profile',
-    WORKOUT_PLAN: 'plan',
-    LOGS: 'logs',
-    EXERCISE_PROGRESS: 'exercise_progress',
-    EXERCISE_MEDIA: 'exercise_media',
-    CALORIE_LOGS: 'calorie_logs',
-    CUSTOM_FOOD_LIST: 'custom_food_list'
+// --- Local Storage Helper Functions ---
+const LOCAL_STORAGE_KEYS = {
+  USER_PROFILE: 'workout_user_profile',
+  WORKOUT_PLAN: 'workout_plan',
+  LOGS: 'workout_logs',
+  EXERCISE_PROGRESS: 'exercise_progress',
+  EXERCISE_MEDIA: 'exercise_media',
+  CALORIE_LOGS: 'calorie_logs',
+  CUSTOM_FOOD_LIST: 'workout_custom_food_list'
 };
 
-/**
- * Saves data to a specific document in Firestore.
- * @param {string} collectionName - The name of the collection.
- * @param {string} docId - The ID of the document.
- * @param {object} data - The data to save.
- * @param {string} userId - The current user's ID.
- */
-const saveToFirestore = async (collectionName, docId, data, userId) => {
-    if (!userId) {
-        console.error("Firestore Save Error: User ID is not available.");
-        return;
-    }
-    try {
-        const docRef = doc(db, 'artifacts', appId, 'users', userId, collectionName, docId);
-        await setDoc(docRef, data, { merge: true });
-    } catch (error) {
-        console.error(`Error saving to Firestore collection ${collectionName}:`, error);
-    }
+const getFromStorage = (key) => {
+  try {
+    const item = localStorage.getItem(key);
+    return item ? JSON.parse(item) : null;
+  } catch (error) {
+    console.error('Error getting from localStorage:', error);
+    return null;
+  }
 };
 
-/**
- * Gets a single document from Firestore.
- * @param {string} collectionName - The name of the collection.
- * @param {string} docId - The ID of the document.
- * @param {string} userId - The current user's ID.
- * @returns {Promise<object|null>} The document data or null.
- */
-const getFromFirestore = async (collectionName, docId, userId) => {
-    if (!userId) {
-        console.error("Firestore Get Error: User ID is not available.");
-        return null;
-    }
-    try {
-        const docRef = doc(db, 'artifacts', appId, 'users', userId, collectionName, docId);
-        const docSnap = await getDoc(docRef);
-        return docSnap.exists() ? docSnap.data() : null;
-    } catch (error) {
-        console.error(`Error getting from Firestore collection ${collectionName}:`, error);
-        return null;
-    }
+const saveToStorage = (key, data) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (error) {
+    console.error('Error saving to localStorage:', error);
+  }
 };
 
-/**
- * Gets all documents from a collection in Firestore.
- * @param {string} collectionName - The name of the collection.
- * @param {string} userId - The current user's ID.
- * @returns {Promise<Array>} An array of documents.
- */
-const getCollectionFromFirestore = async (collectionName, userId) => {
-    if (!userId) {
-        console.error("Firestore Get Collection Error: User ID is not available.");
-        return [];
-    }
-    try {
-        const collectionRef = collection(db, 'artifacts', appId, 'users', userId, collectionName);
-        const querySnapshot = await getDocs(collectionRef);
-        return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    } catch (error) {
-        console.error(`Error getting collection ${collectionName} from Firestore:`, error);
-        return [];
-    }
-};
-
-
-const generateId = () => doc(collection(db, 'temp')).id;
+const generateId = () => Math.random().toString(36).substr(2, 9);
 
 // --- Predefined Data ---
 const EXERCISE_LIST = [
@@ -712,7 +648,7 @@ const HeightSelector = ({ onNext, onBack, profileData, setProfileData }) => {
     );
 };
 
-const PlanConfiguration = ({ onFinish, onBack, profileData, setProfileData, userId }) => {
+const PlanConfiguration = ({ onFinish, onBack, profileData, setProfileData }) => {
     const levels = ['Beginner', 'Intermediate', 'Advanced'];
     const dayOptions = [3, 4, 5, 6, 7];
     const [selectedDays, setSelectedDays] = useState(null);
@@ -740,18 +676,11 @@ const PlanConfiguration = ({ onFinish, onBack, profileData, setProfileData, user
         }
     }, [excludeLegs, profileData.fitnessLevel, selectedDays]);
 
-    const handleFinalizePlan = async () => {
-        // Save profile and plan to Firestore
-        await saveToFirestore(FIRESTORE_COLLECTIONS.USER_PROFILE, 'main', profileData, userId);
-        await saveToFirestore(FIRESTORE_COLLECTIONS.WORKOUT_PLAN, 'main', { plan: workoutPlan }, userId);
+    const handleFinalizePlan = () => {
+        saveToStorage(LOCAL_STORAGE_KEYS.USER_PROFILE, profileData);
+        saveToStorage(LOCAL_STORAGE_KEYS.WORKOUT_PLAN, workoutPlan);
 
-        // Clear existing logs before creating new ones
-        const existingLogs = await getCollectionFromFirestore(FIRESTORE_COLLECTIONS.LOGS, userId);
-        for (const log of existingLogs) {
-            await deleteDoc(doc(db, 'artifacts', appId, 'users', userId, FIRESTORE_COLLECTIONS.LOGS, log.id));
-        }
-
-        // Create new logs
+        const logs = [];
         let dayCounter = 0;
         for (let i = 0; i < 7; i++) {
             const dayKey = `Day ${i + 1}`;
@@ -759,7 +688,8 @@ const PlanConfiguration = ({ onFinish, onBack, profileData, setProfileData, user
             if (dayPlan && dayPlan.exercises.length > 0) {
                 const nextDate = new Date();
                 nextDate.setDate(nextDate.getDate() + dayCounter);
-                const logData = {
+                logs.push({
+                    id: generateId(),
                     day: String(i + 1),
                     planDay: dayKey,
                     name: dayPlan.name || '',
@@ -767,11 +697,11 @@ const PlanConfiguration = ({ onFinish, onBack, profileData, setProfileData, user
                     completed: false,
                     skipped: false,
                     exercises: dayPlan.exercises
-                };
-                await addDoc(collection(db, 'artifacts', appId, 'users', userId, FIRESTORE_COLLECTIONS.LOGS), logData);
+                });
             }
              dayCounter++;
         }
+        saveToStorage(LOCAL_STORAGE_KEYS.LOGS, logs);
         onFinish();
     };
 
@@ -921,7 +851,7 @@ const PlanConfiguration = ({ onFinish, onBack, profileData, setProfileData, user
     );
 };
 
-const Onboarding = ({ onFinish, userId }) => {
+const Onboarding = ({ onFinish }) => {
     const [step, setStep] = useState(0);
     const [profileData, setProfileData] = useState({
         name: '',
@@ -937,7 +867,7 @@ const Onboarding = ({ onFinish, userId }) => {
         <ProfileSetup onNext={() => setStep(1)} profileData={profileData} setProfileData={setProfileData} />,
         <WeightSelector onNext={() => setStep(2)} onBack={() => setStep(0)} profileData={profileData} setProfileData={setProfileData} />,
         <HeightSelector onNext={() => setStep(3)} onBack={() => setStep(1)} profileData={profileData} setProfileData={setProfileData} />,
-        <PlanConfiguration onFinish={onFinish} onBack={() => setStep(2)} profileData={profileData} setProfileData={setProfileData} userId={userId} />,
+        <PlanConfiguration onFinish={onFinish} onBack={() => setStep(2)} profileData={profileData} setProfileData={setProfileData} />,
     ];
 
     return (
@@ -1057,31 +987,24 @@ const AddExerciseModal = ({ isOpen, onClose, onAddExercises, goals }) => {
     );
 };
 
-const ScheduleCreator = ({ onScheduleCreated, userId }) => {
+const ScheduleCreator = ({ onScheduleCreated }) => {
     const days = useMemo(() => ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Day 7'], []);
     const [workoutPlan, setWorkoutPlan] = useState(() => days.reduce((acc, day) => ({ ...acc, [day]: { name: '', exercises: [] } }), {}));
     const [editingDay, setEditingDay] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [userGoals, setUserGoals] = useState([]);
-    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const fetchData = async () => {
-            if (!userId) return;
-            setLoading(true);
-            const profile = await getFromFirestore(FIRESTORE_COLLECTIONS.USER_PROFILE, 'main', userId) || {};
-            if (profile.goals) {
-                setUserGoals(profile.goals);
-            }
+        const profile = getFromStorage(LOCAL_STORAGE_KEYS.USER_PROFILE) || {};
+        if (profile.goals) {
+            setUserGoals(profile.goals);
+        }
 
-            const existingPlanData = await getFromFirestore(FIRESTORE_COLLECTIONS.WORKOUT_PLAN, 'main', userId);
-            if (existingPlanData && existingPlanData.plan) {
-                setWorkoutPlan(existingPlanData.plan);
-            }
-            setLoading(false);
-        };
-        fetchData();
-    }, [userId]);
+        const existingPlan = getFromStorage(LOCAL_STORAGE_KEYS.WORKOUT_PLAN);
+        if (existingPlan) {
+            setWorkoutPlan(existingPlan);
+        }
+    }, []);
 
     const handleAddExercises = (newExercises) => {
         const exercisesWithDefaults = newExercises.map(ex => ({
@@ -1116,16 +1039,11 @@ const ScheduleCreator = ({ onScheduleCreated, userId }) => {
         }));
     };
 
-    const saveSchedule = async () => {
-        if (!userId) return;
-        await saveToFirestore(FIRESTORE_COLLECTIONS.WORKOUT_PLAN, 'main', { plan: workoutPlan }, userId);
+    const saveSchedule = () => {
+        saveToStorage(LOCAL_STORAGE_KEYS.WORKOUT_PLAN, workoutPlan);
 
         // Clear existing logs and create new ones
-        const existingLogs = await getCollectionFromFirestore(FIRESTORE_COLLECTIONS.LOGS, userId);
-        for (const log of existingLogs) {
-             await deleteDoc(doc(db, 'artifacts', appId, 'users', userId, FIRESTORE_COLLECTIONS.LOGS, log.id));
-        }
-
+        const logs = [];
         let dayCounter = 0;
         
         for (let i = 0; i < 7; i++) {
@@ -1136,7 +1054,8 @@ const ScheduleCreator = ({ onScheduleCreated, userId }) => {
                 const nextDate = new Date();
                 nextDate.setDate(nextDate.getDate() + dayCounter);
 
-                const logData = {
+                logs.push({
+                    id: generateId(),
                     day: String(i + 1),
                     planDay: dayKey,
                     name: dayPlan.name || '',
@@ -1149,19 +1068,15 @@ const ScheduleCreator = ({ onScheduleCreated, userId }) => {
                         logged: false, 
                         notes: ex.notes || '' 
                     }))
-                };
-                await addDoc(collection(db, 'artifacts', appId, 'users', userId, FIRESTORE_COLLECTIONS.LOGS), logData);
+                });
             }
             dayCounter++;
         }
 
+        saveToStorage(LOCAL_STORAGE_KEYS.LOGS, logs);
         alert("Schedule updated successfully!");
         onScheduleCreated();
     };
-
-    if (loading) {
-        return <div className="text-center p-10">Loading your schedule...</div>;
-    }
 
     if (editingDay) {
         return (
@@ -1245,26 +1160,16 @@ const ScheduleCreator = ({ onScheduleCreated, userId }) => {
     );
 };
 
-const HomeScreen = ({ onNavigate, userId }) => {
+const HomeScreen = ({ onNavigate }) => {
     const [logs, setLogs] = useState([]);
     const [loading, setLoading] = useState(true);
     const itemRefs = useRef([]);
 
     useEffect(() => {
-        if (!userId) return;
-
-        const q = query(collection(db, 'artifacts', appId, 'users', userId, FIRESTORE_COLLECTIONS.LOGS));
-        const unsubscribe = onSnapshot(q, (querySnapshot) => {
-            const savedLogs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            setLogs(savedLogs);
-            setLoading(false);
-        }, (error) => {
-            console.error("Error fetching logs with onSnapshot: ", error);
-            setLoading(false);
-        });
-
-        return () => unsubscribe();
-    }, [userId]);
+        const savedLogs = getFromStorage(LOCAL_STORAGE_KEYS.LOGS) || [];
+        setLogs(savedLogs);
+        setLoading(false);
+    }, []);
 
     const getDayName = (log) => {
         if (log.name && log.name.trim() !== '') return log.name;
@@ -1375,37 +1280,31 @@ const HomeScreen = ({ onNavigate, userId }) => {
     );
 };
 
-const DayDetail = ({ logId, onBack, onNavigate, userId }) => {
+const DayDetail = ({ logId, onBack, onNavigate }) => {
     const [log, setLog] = useState(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        if (!userId || !logId) return;
-
-        const docRef = doc(db, 'artifacts', appId, 'users', userId, FIRESTORE_COLLECTIONS.LOGS, logId);
-        const unsubscribe = onSnapshot(docRef, (docSnap) => {
-            if (docSnap.exists()) {
-                const foundLog = { id: docSnap.id, ...docSnap.data() };
-                foundLog.exercises = foundLog.exercises.map(ex => ({
-                    ...ex, 
-                    sets: ex.sets || [], 
-                    skipped: ex.skipped || false 
-                }));
-                setLog(foundLog);
-            }
-            setLoading(false);
-        }, (error) => {
-            console.error("Error fetching log detail: ", error);
-            setLoading(false);
-        });
-
-        return () => unsubscribe();
-    }, [logId, userId]);
+        const logs = getFromStorage(LOCAL_STORAGE_KEYS.LOGS) || [];
+        const foundLog = logs.find(l => l.id === logId);
+        if (foundLog) {
+            foundLog.exercises = foundLog.exercises.map(ex => ({
+                ...ex, 
+                sets: ex.sets || [], 
+                skipped: ex.skipped || false 
+            }));
+            setLog(foundLog);
+        }
+        setLoading(false);
+    }, [logId]);
     
-    const updateLogExercises = async (updatedExercises) => {
-        if (!userId || !logId) return;
-        const docRef = doc(db, 'artifacts', appId, 'users', userId, FIRESTORE_COLLECTIONS.LOGS, logId);
-        await updateDoc(docRef, { exercises: updatedExercises });
+    const updateLog = (updatedExercises) => {
+        const logs = getFromStorage(LOCAL_STORAGE_KEYS.LOGS) || [];
+        const logIndex = logs.findIndex(l => l.id === logId);
+        if (logIndex !== -1) {
+            logs[logIndex].exercises = updatedExercises;
+            saveToStorage(LOCAL_STORAGE_KEYS.LOGS, logs);
+        }
     };
 
     const handleSetChange = (exerciseIndex, setIndex, field, value) => {
@@ -1416,14 +1315,14 @@ const DayDetail = ({ logId, onBack, onNavigate, userId }) => {
             newLog.exercises[exerciseIndex].logged = true;
         }
         setLog(newLog);
-        updateLogExercises(newLog.exercises);
+        updateLog(newLog.exercises);
     };
 
     const handleNoteChange = (exerciseIndex, value) => {
         const newLog = { ...log };
         newLog.exercises[exerciseIndex].notes = value;
         setLog(newLog);
-        updateLogExercises(newLog.exercises);
+        updateLog(newLog.exercises);
     };
 
     const addSet = (exerciseIndex) => {
@@ -1435,7 +1334,7 @@ const DayDetail = ({ logId, onBack, onNavigate, userId }) => {
             newLog.exercises[exerciseIndex].logged = true;
         }
         setLog(newLog);
-        updateLogExercises(newLog.exercises);
+        updateLog(newLog.exercises);
     };
 
     const removeSet = (exerciseIndex, setIndex) => {
@@ -1445,7 +1344,7 @@ const DayDetail = ({ logId, onBack, onNavigate, userId }) => {
             newLog.exercises[exerciseIndex].logged = false;
         }
         setLog(newLog);
-        updateLogExercises(newLog.exercises);
+        updateLog(newLog.exercises);
     };
 
     const toggleSkipExercise = (exerciseIndex) => {
@@ -1456,40 +1355,43 @@ const DayDetail = ({ logId, onBack, onNavigate, userId }) => {
             exercise.sets = [];
         }
         setLog(newLog);
-        updateLogExercises(newLog.exercises);
+        updateLog(newLog.exercises);
     };
 
-    const markDayAsComplete = async () => {
-        if (!userId || !logId) return;
+    const markDayAsComplete = () => {
         // 1. Mark current log as complete
-        const logDocRef = doc(db, 'artifacts', appId, 'users', userId, FIRESTORE_COLLECTIONS.LOGS, logId);
-        await updateDoc(logDocRef, { completed: true });
+        const logs = getFromStorage(LOCAL_STORAGE_KEYS.LOGS) || [];
+        const logIndex = logs.findIndex(l => l.id === logId);
+        if (logIndex !== -1) {
+            logs[logIndex].completed = true;
+            saveToStorage(LOCAL_STORAGE_KEYS.LOGS, logs);
+        }
 
         // 2. Save progress for analytics
-        for (const ex of log.exercises) {
+        const exerciseProgress = getFromStorage(LOCAL_STORAGE_KEYS.EXERCISE_PROGRESS) || [];
+        log.exercises.forEach((ex) => {
             if (!ex.skipped && ex.logged && ex.sets && ex.sets.length > 0) {
                 const heaviestSet = ex.sets.reduce((maxSet, currentSet) => 
                     currentSet.weight > maxSet.weight ? currentSet : maxSet, ex.sets[0]);
-                const progressData = {
+                exerciseProgress.push({
+                    id: generateId(),
                     exerciseName: ex.name,
                     date: log.date,
                     reps: heaviestSet.reps,
                     weight: heaviestSet.weight,
                     muscle: ex.muscle || 'Custom'
-                };
-                await addDoc(collection(db, 'artifacts', appId, 'users', userId, FIRESTORE_COLLECTIONS.EXERCISE_PROGRESS), progressData);
+                });
             }
-        }
+        });
+        saveToStorage(LOCAL_STORAGE_KEYS.EXERCISE_PROGRESS, exerciseProgress);
         
         // 3. Check if we need to generate the next cycle
-        const allLogs = await getCollectionFromFirestore(FIRESTORE_COLLECTIONS.LOGS, userId);
-        const futureLogs = allLogs.filter(l => !l.completed);
+        const futureLogs = logs.filter(l => !l.completed);
         
         if (futureLogs.length <= 1) { 
-            const planData = await getFromFirestore(FIRESTORE_COLLECTIONS.WORKOUT_PLAN, 'main', userId);
-            const plan = planData?.plan || {};
-            const lastDayIndex = Math.max(0, ...allLogs.map(l => parseInt(l.day)));
-            const lastDayDate = new Date(Math.max(...allLogs.map(l => new Date(l.date))));
+            const plan = getFromStorage(LOCAL_STORAGE_KEYS.WORKOUT_PLAN) || {};
+            const lastDayIndex = Math.max(0, ...logs.map(l => parseInt(l.day)));
+            const lastDayDate = new Date(Math.max(...logs.map(l => new Date(l.date))));
 
             for (let i = 0; i < 7; i++) {
                 const planDayKey = `Day ${i + 1}`;
@@ -1499,7 +1401,8 @@ const DayDetail = ({ logId, onBack, onNavigate, userId }) => {
                     const nextDate = new Date(lastDayDate);
                     nextDate.setDate(nextDate.getDate() + i + 1);
 
-                    const newLogData = {
+                    logs.push({
+                        id: generateId(),
                         day: String(lastDayIndex + i + 1),
                         planDay: planDayKey,
                         name: dayPlan.name || '',
@@ -1512,10 +1415,10 @@ const DayDetail = ({ logId, onBack, onNavigate, userId }) => {
                             logged: false, 
                             notes: ex.notes || '' 
                         }))
-                    };
-                    await addDoc(collection(db, 'artifacts', appId, 'users', userId, FIRESTORE_COLLECTIONS.LOGS), newLogData);
+                    });
                 }
             }
+            saveToStorage(LOCAL_STORAGE_KEYS.LOGS, logs);
         }
 
         onBack();
@@ -1614,25 +1517,20 @@ const DayDetail = ({ logId, onBack, onNavigate, userId }) => {
     );
 };
 
-const ProgressGraph = ({ exerciseName, onBack, userId }) => {
+const ProgressGraph = ({ exerciseName, onBack }) => {
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const fetchProgress = async () => {
-            if (!userId) return;
-            setLoading(true);
-            const allProgress = await getCollectionFromFirestore(FIRESTORE_COLLECTIONS.EXERCISE_PROGRESS, userId);
-            const filteredData = allProgress
-                .filter(d => d.exerciseName === exerciseName)
-                .sort((a, b) => new Date(a.date) - new Date(b.date))
-                .map(d => ({...d, date: new Date(d.date).toLocaleDateString('en-ca')}));
-            
-            setData(filteredData);
-            setLoading(false);
-        };
-        fetchProgress();
-    }, [exerciseName, userId]);
+        const exerciseProgress = getFromStorage(LOCAL_STORAGE_KEYS.EXERCISE_PROGRESS) || [];
+        const filteredData = exerciseProgress
+            .filter(d => d.exerciseName === exerciseName)
+            .sort((a, b) => new Date(a.date) - new Date(b.date))
+            .map(d => ({...d, date: new Date(d.date).toLocaleDateString('en-ca')}));
+        
+        setData(filteredData);
+        setLoading(false);
+    }, [exerciseName]);
 
     if (loading) return <div className="text-center p-10">Loading graph...</div>;
     
@@ -1654,24 +1552,20 @@ const ProgressGraph = ({ exerciseName, onBack, userId }) => {
     );
 };
 
-const MediaManager = ({ exerciseName, onBack, userId }) => {
+const MediaManager = ({ exerciseName, onBack }) => {
     const [media, setMedia] = useState(null);
     const [caption, setCaption] = useState('');
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const fetchMedia = async () => {
-            if (!userId) return;
-            setLoading(true);
-            const savedMedia = await getFromFirestore(FIRESTORE_COLLECTIONS.EXERCISE_MEDIA, exerciseName, userId);
-            if (savedMedia) {
-                setMedia({ type: savedMedia.type, base64: savedMedia.base64 });
-                setCaption(savedMedia.caption || '');
-            }
-            setLoading(false);
-        };
-        fetchMedia();
-    }, [exerciseName, userId]);
+        const exerciseMedia = getFromStorage(LOCAL_STORAGE_KEYS.EXERCISE_MEDIA) || {};
+        const savedMedia = exerciseMedia[exerciseName];
+        if (savedMedia) {
+            setMedia({ type: savedMedia.type, base64: savedMedia.base64 });
+            setCaption(savedMedia.caption || '');
+        }
+        setLoading(false);
+    }, [exerciseName]);
 
     const handleFileChange = (event) => {
         const file = event.target.files[0];
@@ -1687,18 +1581,19 @@ const MediaManager = ({ exerciseName, onBack, userId }) => {
         }
     };
 
-    const saveMedia = async () => {
+    const saveMedia = () => {
         if (!media) {
             alert("Please select a file first.");
             return;
         }
         
-        const mediaData = {
+        const exerciseMedia = getFromStorage(LOCAL_STORAGE_KEYS.EXERCISE_MEDIA) || {};
+        exerciseMedia[exerciseName] = {
             type: media.type,
             base64: media.base64,
             caption: caption
         };
-        await saveToFirestore(FIRESTORE_COLLECTIONS.EXERCISE_MEDIA, exerciseName, mediaData, userId);
+        saveToStorage(LOCAL_STORAGE_KEYS.EXERCISE_MEDIA, exerciseMedia);
         
         alert("Media saved!");
         onBack();
@@ -1734,7 +1629,7 @@ const MediaManager = ({ exerciseName, onBack, userId }) => {
     );
 };
 
-const WorkoutAnalytics = ({ userId }) => {
+const WorkoutAnalytics = () => {
     const [loading, setLoading] = useState(true);
     const [logs, setLogs] = useState([]);
     const [currentDate, setCurrentDate] = useState(new Date());
@@ -1743,36 +1638,31 @@ const WorkoutAnalytics = ({ userId }) => {
     const [selectedExercise, setSelectedExercise] = useState('');
 
     useEffect(() => {
-        const fetchData = async () => {
-            if (!userId) return;
-            setLoading(true);
-            const savedLogs = await getCollectionFromFirestore(FIRESTORE_COLLECTIONS.LOGS, userId);
-            setLogs(savedLogs);
+        const savedLogs = getFromStorage(LOCAL_STORAGE_KEYS.LOGS) || [];
+        setLogs(savedLogs);
 
-            const exerciseProgress = await getCollectionFromFirestore(FIRESTORE_COLLECTIONS.EXERCISE_PROGRESS, userId);
-            const groupedProgress = exerciseProgress.reduce((acc, curr) => {
-                if (!acc[curr.exerciseName]) {
-                    acc[curr.exerciseName] = [];
-                }
-                acc[curr.exerciseName].push({ date: new Date(curr.date).toLocaleDateString('en-ca'), weight: curr.weight });
-                return acc;
-            }, {});
-
-            for (const exercise in groupedProgress) {
-                groupedProgress[exercise].sort((a, b) => new Date(a.date) - new Date(b.date));
+        const exerciseProgress = getFromStorage(LOCAL_STORAGE_KEYS.EXERCISE_PROGRESS) || [];
+        const groupedProgress = exerciseProgress.reduce((acc, curr) => {
+            if (!acc[curr.exerciseName]) {
+                acc[curr.exerciseName] = [];
             }
+            acc[curr.exerciseName].push({ date: new Date(curr.date).toLocaleDateString('en-ca'), weight: curr.weight });
+            return acc;
+        }, {});
 
-            setProgressData(groupedProgress);
-            const exercises = Object.keys(groupedProgress);
-            setAvailableExercises(exercises);
-            if (exercises.length > 0) {
-                setSelectedExercise(exercises[0]);
-            }
+        for (const exercise in groupedProgress) {
+            groupedProgress[exercise].sort((a, b) => new Date(a.date) - new Date(b.date));
+        }
 
-            setLoading(false);
-        };
-        fetchData();
-    }, [userId]);
+        setProgressData(groupedProgress);
+        const exercises = Object.keys(groupedProgress);
+        setAvailableExercises(exercises);
+        if (exercises.length > 0) {
+            setSelectedExercise(exercises[0]);
+        }
+
+        setLoading(false);
+    }, []);
 
     const renderCalendar = () => {
         const month = currentDate.getMonth();
@@ -1859,43 +1749,38 @@ const WorkoutAnalytics = ({ userId }) => {
 };
 
 
-const ProfilePage = ({ onNavigate, userId }) => {
+const ProfilePage = ({ onNavigate }) => {
     const [profile, setProfile] = useState(null);
     const [isEditing, setIsEditing] = useState(false);
     const [name, setName] = useState('');
     const importFileRef = useRef(null);
 
     useEffect(() => {
-        const fetchProfile = async () => {
-            if (!userId) return;
-            const userProfile = await getFromFirestore(FIRESTORE_COLLECTIONS.USER_PROFILE, 'main', userId);
-            if (userProfile) {
-                setProfile(userProfile);
-                setName(userProfile.name);
-            }
-        };
-        fetchProfile();
-    }, [userId]);
+        const userProfile = getFromStorage(LOCAL_STORAGE_KEYS.USER_PROFILE);
+        if (userProfile) {
+            setProfile(userProfile);
+            setName(userProfile.name);
+        }
+    }, []);
 
     const handleNameChange = (e) => {
         setName(e.target.value);
     };
 
-    const handleSaveName = async () => {
-        if (profile && userId) {
+    const handleSaveName = () => {
+        if (profile) {
             const updatedProfile = { ...profile, name };
-            await saveToFirestore(FIRESTORE_COLLECTIONS.USER_PROFILE, 'main', updatedProfile, userId);
+            saveToStorage(LOCAL_STORAGE_KEYS.USER_PROFILE, updatedProfile);
             setProfile(updatedProfile);
             setIsEditing(false);
         }
     };
 
-    const handleExportData = async () => {
-        if (!userId) return;
+    const handleExportData = () => {
         const dataToExport = {};
-        for (const key of Object.values(FIRESTORE_COLLECTIONS)) {
-             dataToExport[key] = await getCollectionFromFirestore(key, userId);
-        }
+        Object.values(LOCAL_STORAGE_KEYS).forEach(key => {
+            dataToExport[key] = getFromStorage(key);
+        });
 
         const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(
             JSON.stringify(dataToExport, null, 2)
@@ -1908,14 +1793,14 @@ const ProfilePage = ({ onNavigate, userId }) => {
 
     const handleImportData = (event) => {
         const file = event.target.files[0];
-        if (!file || !userId) return;
+        if (!file) return;
 
         const reader = new FileReader();
-        reader.onload = async (e) => {
+        reader.onload = (e) => {
             try {
                 const importedData = JSON.parse(e.target.result);
                 // Basic validation
-                const requiredKeys = Object.values(FIRESTORE_COLLECTIONS);
+                const requiredKeys = Object.values(LOCAL_STORAGE_KEYS);
                 const importedKeys = Object.keys(importedData);
                 const hasAllKeys = requiredKeys.every(key => importedKeys.includes(key));
 
@@ -1924,19 +1809,15 @@ const ProfilePage = ({ onNavigate, userId }) => {
                     return;
                 }
 
-                // Save data to Firestore
-                for (const key of requiredKeys) {
+                // Save data to localStorage
+                requiredKeys.forEach(key => {
                     if (importedData[key]) {
-                        // This is a simplified import; a real app would need more robust logic
-                        // to handle collections and documents correctly.
-                        // For now, we'll just show an alert.
-                        console.log(`Importing data for ${key}...`);
+                        saveToStorage(key, importedData[key]);
                     }
-                }
+                });
 
-                alert("Data import feature is complex with Firestore. Please contact support for data migration.");
-                // A full implementation would require clearing existing data and batch writing new data.
-                // window.location.reload();
+                alert("Data imported successfully! The app will now reload.");
+                window.location.reload();
 
             } catch (error) {
                 console.error("Error importing data:", error);
@@ -2021,7 +1902,7 @@ const ProfilePage = ({ onNavigate, userId }) => {
     );
 };
 
-const CalorieCounter = ({ userId }) => {
+const CalorieCounter = () => {
     const [dailyLog, setDailyLog] = useState({ goal: 2000, foods: [] });
     const [newFood, setNewFood] = useState({ name: '', calories: '' });
     const [suggestions, setSuggestions] = useState([]);
@@ -2032,30 +1913,27 @@ const CalorieCounter = ({ userId }) => {
     const suggestionBoxRef = useRef(null);
 
     const dateToString = (date) => date.toISOString().split('T')[0];
-    const logId = dateToString(currentDate);
 
     useEffect(() => {
-        if (!userId) return;
+        const allLogs = getFromStorage(LOCAL_STORAGE_KEYS.CALORIE_LOGS) || {};
+        const todayLog = allLogs[dateToString(currentDate)] || { goal: 2000, foods: [] };
+        setDailyLog(todayLog);
 
-        const fetchCalorieData = async () => {
-            const todayLogData = await getFromFirestore(FIRESTORE_COLLECTIONS.CALORIE_LOGS, logId, userId);
-            setDailyLog(todayLogData || { goal: 2000, foods: [] });
+        let savedCustomFoods = getFromStorage(LOCAL_STORAGE_KEYS.CUSTOM_FOOD_LIST) || [];
+        const twentyDaysAgo = new Date();
+        twentyDaysAgo.setDate(twentyDaysAgo.getDate() - 20);
 
-            let savedCustomFoods = await getCollectionFromFirestore(FIRESTORE_COLLECTIONS.CUSTOM_FOOD_LIST, userId) || [];
-            
-            // This logic can be simplified or removed if not strictly needed
-            const twentyDaysAgo = new Date();
-            twentyDaysAgo.setDate(twentyDaysAgo.getDate() - 20);
-            const recentCustomFoods = savedCustomFoods.filter(food => new Date(food.lastUsed) > twentyDaysAgo);
-            
-            setCustomFoods(recentCustomFoods);
-            const combined = [...new Set([...FOOD_LIST.map(f => f.name), ...recentCustomFoods.map(f => f.name)])].sort();
-            setAllFoods(combined);
-        };
+        const recentCustomFoods = savedCustomFoods.filter(food => new Date(food.lastUsed) > twentyDaysAgo);
 
-        fetchCalorieData();
-    }, [currentDate, userId, logId]);
-    
+        if (recentCustomFoods.length !== savedCustomFoods.length) {
+            saveToStorage(LOCAL_STORAGE_KEYS.CUSTOM_FOOD_LIST, recentCustomFoods);
+        }
+
+        setCustomFoods(recentCustomFoods);
+        const combined = [...new Set([...FOOD_LIST.map(f => f.name), ...recentCustomFoods.map(f => f.name)])].sort();
+        setAllFoods(combined);
+    }, [currentDate]);
+
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (suggestionBoxRef.current && !suggestionBoxRef.current.contains(event.target)) {
@@ -2069,8 +1947,9 @@ const CalorieCounter = ({ userId }) => {
     }, []);
 
     const saveLog = (log) => {
-        if (!userId) return;
-        saveToFirestore(FIRESTORE_COLLECTIONS.CALORIE_LOGS, logId, log, userId);
+        const allLogs = getFromStorage(LOCAL_STORAGE_KEYS.CALORIE_LOGS) || {};
+        allLogs[dateToString(currentDate)] = log;
+        saveToStorage(LOCAL_STORAGE_KEYS.CALORIE_LOGS, allLogs);
     };
 
     const handleGoalChange = (e) => {
@@ -2102,9 +1981,9 @@ const CalorieCounter = ({ userId }) => {
         setSuggestions([]);
     };
 
-    const handleAddFood = async (e) => {
+    const handleAddFood = (e) => {
         e.preventDefault();
-        if (newFood.name && newFood.calories > 0 && userId) {
+        if (newFood.name && newFood.calories > 0) {
             const newLog = {
                 ...dailyLog,
                 foods: [...dailyLog.foods, { ...newFood, id: generateId() }]
@@ -2117,10 +1996,16 @@ const CalorieCounter = ({ userId }) => {
             const isPredefined = FOOD_LIST.some(f => f.name.toLowerCase() === foodNameLower);
             
             if (!isPredefined) {
-                const customFoodData = { name: newFood.name, lastUsed: dateToString(new Date()) };
-                await saveToFirestore(FIRESTORE_COLLECTIONS.CUSTOM_FOOD_LIST, newFood.name, customFoodData, userId);
+                let updatedCustomFoods = [...customFoods];
+                const existingCustomFoodIndex = customFoods.findIndex(f => f.name.toLowerCase() === foodNameLower);
+
+                if (existingCustomFoodIndex > -1) {
+                    updatedCustomFoods[existingCustomFoodIndex].lastUsed = dateToString(new Date());
+                } else {
+                    updatedCustomFoods.push({ name: newFood.name, lastUsed: dateToString(new Date()) });
+                }
                 
-                const updatedCustomFoods = await getCollectionFromFirestore(FIRESTORE_COLLECTIONS.CUSTOM_FOOD_LIST, userId);
+                saveToStorage(LOCAL_STORAGE_KEYS.CUSTOM_FOOD_LIST, updatedCustomFoods);
                 setCustomFoods(updatedCustomFoods);
                 setAllFoods([...new Set([...FOOD_LIST.map(f => f.name), ...updatedCustomFoods.map(f => f.name)])].sort());
             }
@@ -2138,11 +2023,9 @@ const CalorieCounter = ({ userId }) => {
         saveLog(newLog);
     };
 
-    const handleDeleteCustomFood = async (foodToDelete) => {
-        if (!userId) return;
-        await deleteDoc(doc(db, 'artifacts', appId, 'users', userId, FIRESTORE_COLLECTIONS.CUSTOM_FOOD_LIST, foodToDelete));
-        
+    const handleDeleteCustomFood = (foodToDelete) => {
         const updatedCustomFoods = customFoods.filter(food => food.name !== foodToDelete);
+        saveToStorage(LOCAL_STORAGE_KEYS.CUSTOM_FOOD_LIST, updatedCustomFoods);
         setCustomFoods(updatedCustomFoods);
         setAllFoods([...new Set([...FOOD_LIST.map(f => f.name), ...updatedCustomFoods.map(f => f.name)])].sort());
         setSuggestions(prev => prev.filter(s => s !== foodToDelete));
@@ -2266,27 +2149,14 @@ const CalorieCounter = ({ userId }) => {
                     )}
                 </div>
             </Card>
-            {isCalendarOpen && <CalendarModal onClose={() => setIsCalendarOpen(false)} onDateSelect={(date) => { setCurrentDate(date); setIsCalendarOpen(false); }} userId={userId} />}
+            {isCalendarOpen && <CalendarModal onClose={() => setIsCalendarOpen(false)} onDateSelect={(date) => { setCurrentDate(date); setIsCalendarOpen(false); }} />}
         </div>
     );
 };
 
-const CalendarModal = ({ onClose, onDateSelect, userId }) => {
+const CalendarModal = ({ onClose, onDateSelect }) => {
     const [date, setDate] = useState(new Date());
-    const [allLogs, setAllLogs] = useState({});
-
-    useEffect(() => {
-        const fetchLogs = async () => {
-            if (!userId) return;
-            const logsData = await getCollectionFromFirestore(FIRESTORE_COLLECTIONS.CALORIE_LOGS, userId);
-            const logsMap = logsData.reduce((acc, log) => {
-                acc[log.id] = log;
-                return acc;
-            }, {});
-            setAllLogs(logsMap);
-        };
-        fetchLogs();
-    }, [userId]);
+    const allLogs = getFromStorage(LOCAL_STORAGE_KEYS.CALORIE_LOGS) || {};
 
     const month = date.getMonth();
     const year = date.getFullYear();
@@ -2346,49 +2216,24 @@ export default function App() {
     const [loading, setLoading] = useState(true);
     const [appState, setAppState] = useState('loading');
     const [navParams, setNavParams] = useState({});
-    const [userId, setUserId] = useState(null);
 
     useEffect(() => {
-        const authUnsubscribe = onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                setUserId(user.uid);
-                console.log("User is signed in with UID:", user.uid);
-                
-                // Check for profile to determine app state
-                const profile = await getFromFirestore(FIRESTORE_COLLECTIONS.USER_PROFILE, 'main', user.uid);
-                const workoutPlanData = await getFromFirestore(FIRESTORE_COLLECTIONS.WORKOUT_PLAN, 'main', user.uid);
-                const workoutPlan = workoutPlanData?.plan;
-                
-                if (!profile || !profile.fitnessLevel) {
-                    setAppState('onboarding');
-                } else if (!workoutPlan) {
-                    setAppState('schedule');
-                } else {
-                    const hasExercises = Object.values(workoutPlan).some(day => day.exercises && day.exercises.length > 0);
-                    if (!hasExercises) {
-                        setAppState('schedule');
-                    } else {
-                        setAppState('home');
-                    }
-                }
+        const profile = getFromStorage(LOCAL_STORAGE_KEYS.USER_PROFILE);
+        const workoutPlan = getFromStorage(LOCAL_STORAGE_KEYS.WORKOUT_PLAN);
+        
+        if (!profile || !profile.fitnessLevel) {
+            setAppState('onboarding');
+        } else if (!workoutPlan) {
+            setAppState('schedule');
+        } else {
+            const hasExercises = Object.values(workoutPlan).some(day => day.exercises && day.exercises.length > 0);
+            if (!hasExercises) {
+                setAppState('schedule');
             } else {
-                console.log("No user signed in. Attempting to sign in.");
-                // Handle sign-in
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    try {
-                        await signInWithCustomToken(auth, __initial_auth_token);
-                    } catch(e) {
-                        console.error("Custom token sign-in failed, trying anonymous", e);
-                        await signInAnonymously(auth);
-                    }
-                } else {
-                    await signInAnonymously(auth);
-                }
+                setAppState('home');
             }
-            setLoading(false);
-        });
-
-        return () => authUnsubscribe();
+        }
+        setLoading(false);
     }, []);
 
     const handleNavigation = (screen, params = {}) => {
@@ -2397,7 +2242,7 @@ export default function App() {
     };
 
     const renderContent = () => {
-        if (loading || appState === 'loading' || !userId) {
+        if (loading || appState === 'loading') {
             return <div className="flex justify-center items-center h-screen">
                 <Dumbbell className="animate-spin h-12 w-12 text-indigo-600" />
             </div>;
@@ -2405,23 +2250,23 @@ export default function App() {
 
         switch (appState) {
             case 'onboarding':
-                return <Onboarding onFinish={() => window.location.reload()} userId={userId} />;
+                return <Onboarding onFinish={() => setAppState('home')} />;
             case 'schedule':
-                return <ScheduleCreator onScheduleCreated={() => setAppState('home')} userId={userId} />;
+                return <ScheduleCreator onScheduleCreated={() => setAppState('home')} />;
             case 'home':
-                return <HomeScreen onNavigate={handleNavigation} userId={userId} />;
+                return <HomeScreen onNavigate={handleNavigation} />;
             case 'dayDetail':
-                return <DayDetail logId={navParams.logId} onBack={() => setAppState('home')} onNavigate={handleNavigation} userId={userId} />;
+                return <DayDetail logId={navParams.logId} onBack={() => setAppState('home')} onNavigate={handleNavigation} />;
             case 'progressGraph':
-                return <ProgressGraph exerciseName={navParams.exerciseName} onBack={() => handleNavigation('dayDetail', { logId: navParams.logId })} userId={userId} />;
+                return <ProgressGraph exerciseName={navParams.exerciseName} onBack={() => handleNavigation('dayDetail', { logId: navParams.logId })} />;
             case 'mediaManager':
-                 return <MediaManager exerciseName={navParams.exerciseName} onBack={() => handleNavigation('dayDetail', { logId: navParams.logId })} userId={userId} />;
+                 return <MediaManager exerciseName={navParams.exerciseName} onBack={() => handleNavigation('dayDetail', { logId: navParams.logId })} />;
             case 'analytics':
-                return <WorkoutAnalytics userId={userId} />;
+                return <WorkoutAnalytics />;
             case 'calorieCounter':
-                return <CalorieCounter userId={userId} />;
+                return <CalorieCounter />;
             case 'profile':
-                 return <ProfilePage onNavigate={handleNavigation} userId={userId} />;
+                 return <ProfilePage onNavigate={handleNavigation} />;
             default:
                 return <div className="text-center text-red-500">Something went wrong.</div>;
         }
