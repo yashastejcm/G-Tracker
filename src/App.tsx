@@ -244,6 +244,7 @@ const Button = ({ children, onClick, variant = 'primary', className = '', disabl
         primary: 'bg-[#494358] text-white hover:bg-[#5A556B] focus:ring-[#5A556B]',
         secondary: 'bg-gray-200 text-gray-800 hover:bg-gray-300 focus:ring-gray-400',
         danger: 'bg-red-500 text-white hover:bg-red-600 focus:ring-red-500',
+        lightDanger: 'bg-red-400 text-white hover:bg-red-500 focus:ring-red-500',
     };
     return (
         <button onClick={onClick} className={`${baseClasses} ${variants[variant]} ${className}`} disabled={disabled}>
@@ -252,18 +253,21 @@ const Button = ({ children, onClick, variant = 'primary', className = '', disabl
     );
 };
 
-const NumberStepper = ({ value, onChange, step, min = 0, max = 1000 }) => {
+const NumberStepper = ({ value, onChange, step, min = 0, max = 1000, disabled = false }) => {
     const handleIncrement = () => {
+        if(disabled) return;
         const newValue = Math.min(value + step, max);
         onChange(newValue);
     };
 
     const handleDecrement = () => {
+        if(disabled) return;
         const newValue = Math.max(value - step, min);
         onChange(newValue);
     };
     
     const handleInputChange = (e) => {
+        if(disabled) return;
         const rawValue = e.target.value;
         if (rawValue === '') {
             onChange(0);
@@ -278,16 +282,17 @@ const NumberStepper = ({ value, onChange, step, min = 0, max = 1000 }) => {
 
     return (
         <div className="flex items-center justify-center gap-2">
-            <button type="button" onClick={handleDecrement} className="p-2 rounded-full bg-gray-200 hover:bg-gray-300 transition-colors">
+            <button type="button" onClick={handleDecrement} className="p-2 rounded-full bg-gray-200 hover:bg-gray-300 transition-colors disabled:opacity-50" disabled={disabled}>
                 <Minus size={16} />
             </button>
             <input
                 type="number"
                 value={value}
                 onChange={handleInputChange}
-                className="text-lg font-semibold w-16 text-center bg-transparent border-none focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                className="text-lg font-semibold w-14 text-center bg-transparent border-none focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:opacity-50"
+                disabled={disabled}
             />
-            <button type="button" onClick={handleIncrement} className="p-2 rounded-full bg-gray-200 hover:bg-gray-300 transition-colors">
+            <button type="button" onClick={handleIncrement} className="p-2 rounded-full bg-gray-200 hover:bg-gray-300 transition-colors disabled:opacity-50" disabled={disabled}>
                 <Plus size={16} />
             </button>
         </div>
@@ -1233,14 +1238,9 @@ const HomeScreen = ({ onNavigate }) => {
         const sortedLogs = workoutLogs.sort((a, b) => new Date(a.date) - new Date(b.date));
         
         const activeLog = sortedLogs.find(l => !l.completed);
-        let workoutDayCounter = 1;
 
-        return logs.map(log => {
-            const isRestDay = !log.exercises || log.exercises.length === 0;
-            if(isRestDay) return null; // Skip rest days from timeline display
-
+        return sortedLogs.map((log, index) => {
             const name = getDayName(log);
-            
             let status = 'locked';
             if (log.completed) {
                 status = 'completed';
@@ -1248,17 +1248,15 @@ const HomeScreen = ({ onNavigate }) => {
                 status = 'current';
             }
             
-            const dayInfo = {
-                dayKey: `Day ${workoutDayCounter}`,
+            return {
+                dayKey: `Day ${index + 1}`,
                 name,
-                isRestDay,
+                isRestDay: false,
                 status,
                 logId: log.id,
                 date: log.date,
             };
-            workoutDayCounter++;
-            return dayInfo;
-        }).filter(Boolean); // Filter out null (rest day) entries
+        });
     }, [logs]);
 
     useEffect(() => {
@@ -1511,7 +1509,7 @@ const DayDetail = ({ logId, onBack, onNavigate }) => {
                         
                         {!ex.skipped && (
                             <>
-                                <div className="grid grid-cols-12 gap-x-2 mb-2 px-2 text-sm font-semibold text-gray-500">
+                                <div className="grid grid-cols-12 gap-x-1 mb-2 px-2 text-sm font-semibold text-gray-500">
                                     <div className="col-span-2">Set</div>
                                     <div className="col-span-4">Weight (kg)</div>
                                     <div className="col-span-4">Reps</div>
@@ -1520,7 +1518,7 @@ const DayDetail = ({ logId, onBack, onNavigate }) => {
 
                                 <div className="space-y-2">
                                     {ex.sets.map((set, setIndex) => (
-                                        <div key={setIndex} className="grid grid-cols-12 gap-x-2 items-center">
+                                        <div key={setIndex} className="grid grid-cols-12 gap-x-1 items-center">
                                             <div className="col-span-2 text-center font-medium">{setIndex + 1}</div>
                                             <div className="col-span-4">
                                                 <NumberStepper value={set.weight} onChange={(newWeight) => handleSetChange(exerciseIndex, setIndex, 'weight', newWeight)} step={2.5} />
@@ -1811,6 +1809,7 @@ const ProfilePage = ({ onNavigate }) => {
     const [name, setName] = useState('');
     const [resetStep, setResetStep] = useState(0);
     const [resetInput, setResetInput] = useState('');
+    const [resetType, setResetType] = useState(null); // 'timeline' or 'calorie'
     const importFileRef = useRef(null);
 
     useEffect(() => {
@@ -1885,28 +1884,47 @@ const ProfilePage = ({ onNavigate }) => {
         reader.readAsText(file);
     };
 
-    const handleResetTimeline = () => {
-        const logs = getFromStorage(LOCAL_STORAGE_KEYS.LOGS) || [];
-        const resetLogs = logs.map(log => ({ ...log, completed: false }));
-        saveToStorage(LOCAL_STORAGE_KEYS.LOGS, resetLogs);
+    const handleReset = () => {
+        if (resetType === 'timeline') {
+            const logs = getFromStorage(LOCAL_STORAGE_KEYS.LOGS) || [];
+            const resetLogs = logs.map(log => ({ ...log, completed: false }));
+            saveToStorage(LOCAL_STORAGE_KEYS.LOGS, resetLogs);
+            alert("Workout timeline has been reset!");
+            onNavigate('home');
+        } else if (resetType === 'calorie') {
+            localStorage.removeItem(LOCAL_STORAGE_KEYS.CALORIE_LOGS);
+            localStorage.removeItem(LOCAL_STORAGE_KEYS.CUSTOM_FOOD_LIST);
+            alert("Calorie data has been reset!");
+            onNavigate('calorieCounter');
+        }
         setResetStep(0);
         setResetInput('');
-        alert("Workout timeline has been reset!");
-        onNavigate('home');
+        setResetType(null);
     };
 
     const renderResetModal = () => {
         if (resetStep === 0) return null;
+
+        const resetMessages = {
+            timeline: {
+                title: "Reset Timeline",
+                message: "Are you sure you want to reset your workout timeline? This will mark all your workouts as incomplete and restart your progress from Day 1."
+            },
+            calorie: {
+                title: "Reset Calorie Data",
+                message: "Are you sure you want to reset all your calorie data? This will permanently delete all logged food and custom food entries."
+            }
+        }
 
         return (
             <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4">
                 <Card className="w-full max-w-sm">
                     <div className="text-center">
                         <AlertTriangle className="mx-auto h-12 w-12 text-red-500" />
-                        <h3 className="text-lg font-medium text-gray-900 mt-2">Reset Timeline</h3>
+                        <h3 className="text-lg font-medium text-gray-900 mt-2">{resetMessages[resetType].title}</h3>
                         {resetStep === 1 && (
                             <>
-                                <p className="text-sm text-gray-500 mt-2">Are you sure you want to reset your workout timeline? This will mark all your workouts as incomplete and restart your progress from Day 1.</p>
+                                <p className="text-sm text-gray-500 mt-2">{resetMessages[resetType].message}</p>
                                 <div className="mt-4 flex justify-center gap-4">
                                     <Button onClick={() => setResetStep(0)} variant="secondary">Cancel</Button>
                                     <Button onClick={() => setResetStep(2)} variant="danger">Yes, Reset</Button>
@@ -1924,7 +1942,7 @@ const ProfilePage = ({ onNavigate }) => {
                                 />
                                 <div className="mt-4 flex justify-center gap-4">
                                      <Button onClick={() => setResetStep(0)} variant="secondary">Cancel</Button>
-                                     <Button onClick={handleResetTimeline} variant="danger" disabled={resetInput !== 'RESET'}>Confirm Reset</Button>
+                                     <Button onClick={handleReset} variant="danger" disabled={resetInput !== 'RESET'}>Confirm Reset</Button>
                                 </div>
                             </>
                         )}
@@ -1979,14 +1997,22 @@ const ProfilePage = ({ onNavigate }) => {
             </Card>
 
             <Card className="mt-6">
-                <h3 className="text-xl font-bold mb-4">Workout Plan</h3>
-                <Button onClick={() => onNavigate('schedule')} variant="secondary" className="w-full">
-                    Customize Your 7-Day Plan
-                </Button>
-                 <div className="mt-4">
-                    <Button onClick={() => setResetStep(1)} variant="danger" className="w-full">
-                        Reset Timeline
+                <h3 className="text-xl font-bold mb-4">Settings</h3>
+                <div className="space-y-4">
+                    <Button onClick={() => onNavigate('schedule')} variant="secondary" className="w-full">
+                        Customize Workout Plan
                     </Button>
+                    <Button onClick={() => onNavigate('calorieCounter')} variant="secondary" className="w-full">
+                        Customize Calorie Tracker
+                    </Button>
+                    <div className="grid grid-cols-2 gap-4">
+                         <Button onClick={() => {setResetType('timeline'); setResetStep(1);}} variant="lightDanger" className="w-full">
+                            Reset Timeline
+                        </Button>
+                        <Button onClick={() => {setResetType('calorie'); setResetStep(1);}} variant="lightDanger" className="w-full">
+                            Reset Calorie Data
+                        </Button>
+                    </div>
                 </div>
             </Card>
 
@@ -2377,7 +2403,7 @@ const CalorieCounter = ({ scannerScriptStatus }) => {
                                 disabled={!!scanData}
                             />
                          </div>
-                        <Button type="submit" className="px-5">+</Button>
+                        <Button type="submit" className="px-5 py-3.5"><Plus size={20}/></Button>
                     </div>
                 </form>
                 <div>
