@@ -1903,69 +1903,79 @@ const ProfilePage = ({ onNavigate }) => {
 };
 
 const BarcodeScannerModal = ({ isOpen, onClose, onScanSuccess }) => {
-    const [message, setMessage] = useState("Scanning for barcode...");
-    const scannerRef = useRef(null);
+    const [message, setMessage] = useState("Initializing scanner...");
+    const scannerRef = useRef(null); // To hold the scanner instance
+    const readerRef = useRef(null); // To hold the DOM element
 
     useEffect(() => {
-        if (isOpen && window.Html5Qrcode) {
-            // Ensure the scanner element is in the DOM
-            setTimeout(() => {
-                const html5QrCode = new window.Html5Qrcode("reader");
-                scannerRef.current = html5QrCode;
-                const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-
-                const startScanner = async () => {
-                    try {
-                        await html5QrCode.start(
-                            { facingMode: "environment" },
-                            config,
-                            async (decodedText, decodedResult) => {
-                                // Stop scanning
-                                if (scannerRef.current && scannerRef.current.isScanning) {
-                                    await scannerRef.current.stop();
-                                }
-                                
-                                setMessage(`Fetching data for barcode: ${decodedText}...`);
-                                
-                                // Fetch data from Open Food Facts API
-                                try {
-                                    const response = await fetch(`https://world.openfoodfacts.org/api/v0/product/${decodedText}.json`);
-                                    const data = await response.json();
-
-                                    if (data.status === 1) {
-                                        const productName = data.product.product_name || "Unknown Product";
-                                        const calories = data.product.nutriments['energy-kcal_100g'] || data.product.nutriments['energy-kcal'] || 0;
-                                        onScanSuccess({ name: productName, calories: Math.round(calories) });
-                                    } else {
-                                        alert("Product not found in the database.");
-                                        onClose();
-                                    }
-                                } catch (apiError) {
-                                    console.error("API Error:", apiError);
-                                    alert("Could not fetch product data.");
-                                    onClose();
-                                }
-                            },
-                            (errorMessage) => {
-                                // handle scan error, usually you can ignore this
-                            }
-                        );
-                    } catch (err) {
-                        console.error("Error starting scanner:", err);
-                        setMessage("Could not start camera. Please check permissions.");
-                    }
-                };
-
-                startScanner();
-            }, 100); // Small delay to ensure DOM is ready
-
+        if (!isOpen) {
+            if (scannerRef.current && scannerRef.current.isScanning) {
+                scannerRef.current.stop().catch(err => console.error("Error stopping scanner on close:", err));
+            }
+            return;
         }
 
-        return () => {
+        if (!window.Html5Qrcode) {
+            setMessage("Scanner library not loaded. Please refresh.");
+            return;
+        }
+
+        if (!readerRef.current) {
+            console.error("Reader element ref is not available.");
+            return;
+        }
+
+        const cleanup = () => {
             if (scannerRef.current && scannerRef.current.isScanning) {
-                scannerRef.current.stop().catch(err => console.error("Error stopping scanner:", err));
+                scannerRef.current.stop().catch(err => {
+                    console.error("Failed to stop scanner on cleanup", err);
+                });
             }
         };
+
+        const html5QrCode = new window.Html5Qrcode(readerRef.current.id);
+        scannerRef.current = html5QrCode;
+        const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+        setMessage("Requesting camera access...");
+
+        html5QrCode.start(
+            { facingMode: "environment" },
+            config,
+            async (decodedText, decodedResult) => {
+                cleanup();
+                setMessage(`Fetching data for barcode: ${decodedText}...`);
+                try {
+                    const response = await fetch(`https://world.openfoodfacts.org/api/v0/product/${decodedText}.json`);
+                    const data = await response.json();
+                    if (data.status === 1 && data.product) {
+                        const productName = data.product.product_name || "Unknown Product";
+                        const calories = data.product.nutriments['energy-kcal_100g'] || data.product.nutriments['energy-kcal'] || 0;
+                        onScanSuccess({ name: productName, calories: Math.round(calories) });
+                    } else {
+                        alert("Product not found in the database.");
+                        onClose();
+                    }
+                } catch (apiError) {
+                    console.error("API Error:", apiError);
+                    alert("Could not fetch product data.");
+                    onClose();
+                }
+            },
+            (errorMessage) => {
+                 if (errorMessage.includes("NotAllowedError")) {
+                     setMessage("Camera access denied. Please allow camera access in your browser settings.");
+                }
+            }
+        ).catch(err => {
+            console.error("Error starting scanner:", err);
+            setMessage("Could not start camera. Please check permissions and ensure your camera is not in use by another app.");
+        });
+
+        return () => {
+            cleanup();
+        };
+
     }, [isOpen, onScanSuccess, onClose]);
 
     if (!isOpen) return null;
@@ -1974,7 +1984,7 @@ const BarcodeScannerModal = ({ isOpen, onClose, onScanSuccess }) => {
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4">
             <div className="bg-white rounded-lg p-6 w-full max-w-md">
                 <h3 className="text-xl font-bold mb-4 text-center">Scan Barcode</h3>
-                <div id="reader" style={{ width: '100%', height: '300px' }}></div>
+                <div id="reader" ref={readerRef} style={{ width: '100%', minHeight: '300px', border: '1px solid #eee' }}></div>
                 <p className="text-center text-gray-600 mt-4">{message}</p>
                 <div className="text-center mt-6">
                     <Button onClick={onClose} variant="secondary">Cancel</Button>
