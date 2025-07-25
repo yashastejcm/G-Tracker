@@ -671,7 +671,7 @@ const PlanConfiguration = ({ onFinish, onBack, profileData, setProfileData }) =>
     
     useEffect(() => {
         if (profileData.fitnessLevel && selectedDays) {
-            const plan = generateWorkoutPlan(profileData.fitnessLevel, selectedDays, excludeLegs);
+            const plan = generateWorkoutPlan(profileData.fitnessLevel, days, excludeLegs);
             setWorkoutPlan(plan);
         }
     }, [excludeLegs, profileData.fitnessLevel, selectedDays]);
@@ -1629,7 +1629,7 @@ const MediaManager = ({ exerciseName, onBack }) => {
     );
 };
 
-const WorkoutAnalytics = () => {
+const WorkoutAnalytics = ({ onNavigate }) => {
     const [loading, setLoading] = useState(true);
     const [logs, setLogs] = useState([]);
     const [currentDate, setCurrentDate] = useState(new Date());
@@ -2341,4 +2341,3 @@ export default function App() {
         </div>
     );
 }
-
