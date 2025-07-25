@@ -151,8 +151,8 @@ const generateWorkoutPlan = (level, days, excludeLegs = false) => {
         // If excluding legs removes all exercises for a day, make it a rest day.
         if (dayTemplate.muscles.length > 0 && exercises.length === 0) {
              formattedPlan[dayKey] = {
-                 name: 'Rest Day',
-                 exercises: []
+                name: 'Rest Day',
+                exercises: []
             };
         } else {
             formattedPlan[dayKey] = {
@@ -632,7 +632,7 @@ const HeightSelector = ({ onNext, onBack, profileData, setProfileData }) => {
                 </div>
                 <div className="w-full max-w-sm bg-[#D6EBEB] p-6 rounded-3xl">
                     <div className="text-center mb-4">
-                       <span className="text-8xl font-bold text-[#262642]">{displayHeight}</span>
+                         <span className="text-8xl font-bold text-[#262642]">{displayHeight}</span>
                     </div>
                      <RulerSlider
                         min={heightSliderProps.min}
