@@ -2017,7 +2017,7 @@ const BarcodeScannerModal = ({ isOpen, onClose, onScanSuccess }) => {
                 }
             ).catch(err => {
                 console.error("Error starting scanner:", err);
-                if (err.name === "NotAllowedError" || err.includes("Permission denied")) {
+                if (err.name === "NotAllowedError" || (typeof err === 'string' && err.includes("Permission denied"))) {
                     setMessage("Camera access denied. Please allow camera access in your browser settings and refresh the page.");
                 } else {
                     setMessage("Could not start camera. It might be in use by another app or is not available.");
@@ -2052,6 +2052,7 @@ const BarcodeScannerModal = ({ isOpen, onClose, onScanSuccess }) => {
 const CalorieCounter = ({ scannerScriptStatus }) => {
     const [dailyLog, setDailyLog] = useState({ goal: 2000, foods: [] });
     const [newFood, setNewFood] = useState({ name: '', calories: '' });
+    const [scanData, setScanData] = useState(null); // { baseCalories: per 100g, servingSize: in g }
     const [suggestions, setSuggestions] = useState([]);
     const [allFoods, setAllFoods] = useState(FOOD_LIST.map(f => f.name));
     const [customFoods, setCustomFoods] = useState([]);
@@ -2110,10 +2111,11 @@ const CalorieCounter = ({ scannerScriptStatus }) => {
     const handleFoodNameChange = (e) => {
         const value = e.target.value;
         setNewFood({...newFood, name: value});
+        setScanData(null); // Reset scan data on manual name change
         if (value) {
             const filteredSuggestions = allFoods.filter(food => 
                 food.toLowerCase().includes(value.toLowerCase())
-            ).slice(0, 5); // Limit to 5 suggestions
+            ).slice(0, 5);
             setSuggestions(filteredSuggestions);
         } else {
             setSuggestions([]);
@@ -2126,20 +2128,22 @@ const CalorieCounter = ({ scannerScriptStatus }) => {
             name: suggestion,
             calories: foodData ? String(foodData.calories) : ''
         });
+        setScanData(null);
         setSuggestions([]);
     };
 
     const handleAddFood = (e) => {
         e.preventDefault();
         if (newFood.name && newFood.calories > 0) {
+            const foodNameToAdd = scanData ? `${newFood.name} (${scanData.servingSize}g)` : newFood.name;
+
             const newLog = {
                 ...dailyLog,
-                foods: [...dailyLog.foods, { ...newFood, id: generateId() }]
+                foods: [...dailyLog.foods, { name: foodNameToAdd, calories: newFood.calories, id: generateId() }]
             };
             setDailyLog(newLog);
             saveLog(newLog);
 
-            // Save or update custom food
             const foodNameLower = newFood.name.toLowerCase();
             const isPredefined = FOOD_LIST.some(f => f.name.toLowerCase() === foodNameLower);
             
@@ -2159,6 +2163,7 @@ const CalorieCounter = ({ scannerScriptStatus }) => {
             }
 
             setNewFood({ name: '', calories: '' });
+            setScanData(null);
         }
     };
 
@@ -2181,7 +2186,15 @@ const CalorieCounter = ({ scannerScriptStatus }) => {
 
     const handleScanSuccess = (scannedData) => {
         setNewFood({ name: scannedData.name, calories: String(scannedData.calories) });
+        setScanData({ baseCalories: scannedData.calories, servingSize: 100 });
         setIsScannerOpen(false);
+    };
+
+    const handleServingSizeChange = (newSize) => {
+        if (!scanData) return;
+        const newCalories = Math.round((scanData.baseCalories / 100) * newSize);
+        setScanData({ ...scanData, servingSize: newSize });
+        setNewFood(prevFood => ({ ...prevFood, calories: String(newCalories) }));
     };
 
     const totalCalories = useMemo(() => {
@@ -2258,7 +2271,7 @@ const CalorieCounter = ({ scannerScriptStatus }) => {
                                 <Barcode size={20} />
                             </button>
                         </div>
-                        {suggestions.length > 0 && (
+                        {suggestions.length > 0 && !scanData && (
                             <ul className="absolute z-10 w-full bg-white border rounded-md mt-1 max-h-40 overflow-y-auto">
                                 {suggestions.map((suggestion, index) => (
                                     <li key={index} className="flex justify-between items-center p-2 hover:bg-gray-100">
@@ -2280,13 +2293,30 @@ const CalorieCounter = ({ scannerScriptStatus }) => {
                             </ul>
                         )}
                     </div>
-                    <div className="flex gap-2">
-                        <NumberStepper 
-                            value={parseInt(newFood.calories) || 0}
-                            onChange={(newCals) => setNewFood({...newFood, calories: String(newCals)})}
-                            step={50}
+
+                    {scanData && (
+                        <div className="p-2 bg-gray-50 rounded-md">
+                            <label className="block text-sm font-medium text-gray-500 mb-1">Serving Size (g)</label>
+                            <NumberStepper 
+                                value={scanData.servingSize}
+                                onChange={handleServingSizeChange}
+                                step={1}
+                                min={1}
+                            />
+                            <p className="text-xs text-center text-gray-400 mt-1">{scanData.baseCalories} kcal per 100g</p>
+                        </div>
+                    )}
+
+                    <div className="flex gap-2 items-center">
+                         <input 
+                            type="number"
+                            placeholder="Calories"
+                            value={newFood.calories}
+                            onChange={(e) => setNewFood({...newFood, calories: e.target.value})}
+                            className="w-full p-2 border rounded-md text-center text-lg font-semibold"
+                            disabled={!!scanData}
                         />
-                        <Button type="submit" className="flex-grow">+</Button>
+                        <Button type="submit" className="px-5">+</Button>
                     </div>
                 </form>
                 <div>
