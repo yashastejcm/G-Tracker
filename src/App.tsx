@@ -984,5 +984,54 @@ export default function App(){
     else setRoute("home");
   }, []);
 
-  function handleUpdateNow(){
-    saveToStorage(LS_KEYS.APP_VERSION, LATEST_APP_VERSION);
+function handleUpdateNow(){
+  saveToStorage(LS_KEYS.APP_VERSION, LATEST_APP_VERSION);
+  setShowVersionCard(false);
+  window.location.reload();
+}
+function handleLater(){
+  saveToStorage(LS_KEYS.APP_VERSION, LATEST_APP_VERSION);
+  setShowVersionCard(false);
+}
+
+function openDay(id){ setDayLogId(id); setRoute("day"); }
+
+if (!boot.ready) return <div className="p-6">Loading…</div>;
+
+return (
+  <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 text-gray-900 font-[Poppins,sans-serif] pb-24">
+    <header className="max-w-xl mx-auto px-4 pt-4">
+      <div className="text-2xl font-bold">GTracker</div>
+      <div className="text-xs text-gray-500">Single-file React Fitness App</div>
+    </header>
+
+    <main>
+      {route==="onboarding" && <Onboarding onFinish={()=> setRoute("home")} />}
+      {route==="schedule" && <ScheduleCreator onSaved={()=> setRoute("home")} />}
+      {route==="home" && <HomeTimeline onOpenDay={openDay} onEditSchedule={()=> setRoute("schedule")} />}
+      {route==="day" && dayLogId && <DayDetail logId={dayLogId} onBack={()=> setRoute("home")} />}
+      {route==="analytics" && <WorkoutAnalytics />}
+      {route==="calories" && <CalorieTracker />}
+      {route==="profile" && <Profile />}
+    </main>
+
+    {route!=="onboarding" && (
+      <TabBar active={route==="home"?"home": route} onChange={(k)=> setRoute(k)} />
+    )}
+
+    {showVersionCard && (
+      <VersionBanner
+        currentVersion={getFromStorage(LS_KEYS.APP_VERSION, null)}
+        onUpdateNow={handleUpdateNow}
+        onLater={handleLater}
+      />
+    )}
+
+    <style>{`
+      @keyframes bounce-in { 0% { transform: scale(0.8); opacity: 0.6; } 80% { transform: scale(1.1); } 100% { transform: scale(1); opacity: 1; } }
+      .animate-\\[bounce-in_300ms_ease] { animation: bounce-in 300ms ease; }
+    `}</style>
+  </div>
+);
+}
+
